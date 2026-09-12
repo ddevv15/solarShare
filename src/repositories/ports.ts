@@ -9,6 +9,7 @@ import type {
   FeederSnapshot,
   Forecast,
   LedgerEntry,
+  IntervalPricingResult,
   MapFeature,
   MarketInterval,
   MarketplaceItem,
@@ -26,7 +27,8 @@ import type {
   SelectedReading,
   SettlementDetail,
   TariffConfig,
-} from "./domain";
+} from "@/repositories/domain";
+import type { PricingOutcome } from "@/domain/pricing";
 import type {
   AppendFeederSnapshotInput,
   AppendTariffInput,
@@ -36,15 +38,18 @@ import type {
   CreateReservationInput,
   PostLedgerInput,
   ResetDemoInput,
+  PriceIntervalInput,
   SelectForecastInput,
   SelectReadingInput,
+  SubmitOfferInput,
+  SubmitReservationInput,
   TransitionIntervalInput,
   UpdateEnergyAssetInput,
   UpdateMembershipInput,
   UpdateOfferInput,
   UpdateProfileInput,
   UpdateReservationInput,
-} from "./schemas";
+} from "@/repositories/schemas";
 
 export interface ProfileRepository {
   getOwnProfile(): Promise<Profile | null>;
@@ -54,6 +59,10 @@ export interface ProfileRepository {
 export interface CommunityRepository {
   listOwnMemberships(): Promise<CommunityMembership[]>;
   getCommunity(communityId: string): Promise<Community | null>;
+  getMarketplacePricingPreview(
+    communityId: string,
+    intervalId: string,
+  ): Promise<PricingOutcome>;
   listMarketplace(
     communityId: string,
     intervalId: string,
@@ -103,12 +112,18 @@ export interface MarketRepository {
     to: string,
     page: PageRequest,
   ): Promise<Page<MarketInterval>>;
+  getTariffForInterval(
+    communityId: string,
+    intervalStart: string,
+  ): Promise<TariffConfig | null>;
+  submitOffer(input: SubmitOfferInput): Promise<Offer>;
   createOffer(input: CreateOfferInput): Promise<Offer>;
   updateOffer(
     id: string,
     expectedVersion: number,
     input: UpdateOfferInput,
   ): Promise<Offer>;
+  submitReservation(input: SubmitReservationInput): Promise<Reservation>;
   createReservation(input: CreateReservationInput): Promise<Reservation>;
   updateReservation(
     id: string,
@@ -154,6 +169,7 @@ export interface OperatorRepository {
 }
 
 export interface TrustedOperationsRepository {
+  priceInterval(input: PriceIntervalInput): Promise<IntervalPricingResult>;
   claimOutbox(
     workerId: string,
     limit: number,

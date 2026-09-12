@@ -2,27 +2,40 @@ import "server-only";
 
 import { createAdminClient } from "@supabase/server/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/types/database.generated";
 import { z } from "zod";
 
 import { getWorkerConfig } from "@/lib/config/worker";
 
-import type { OutboxCompletion, OutboxEvent, ResetDemoResult } from "../domain";
-import { mapDatabaseError, RepositoryError, unwrap } from "../errors";
-import type { TrustedOperationsRepository } from "../ports";
+import type {
+  IntervalPricingResult,
+  OutboxCompletion,
+  OutboxEvent,
+  ResetDemoResult,
+} from "@/repositories/domain";
+import {
+  mapDatabaseError,
+  RepositoryError,
+  unwrap,
+} from "@/repositories/errors";
+import type { TrustedOperationsRepository } from "@/repositories/ports";
 import type {
   CompleteOutboxInput,
   PostLedgerInput,
+  PriceIntervalInput,
   ResetDemoInput,
-} from "../schemas";
+} from "@/repositories/schemas";
 import {
+  intervalPricingResultSchema,
   outboxEventSchema,
   resetDemoResultSchema,
   timestampSchema,
   uuidSchema,
-} from "../schemas";
+} from "@/repositories/schemas";
 
 /**
- * Trusted operations. These are the only four functions a secret client may
+ * Trusted operations. These are the only named functions a secret client may
  * call: the migration revokes `service_role` from every table, so this adapter
  * has no generic privileged query surface. It must never be reached from a
  * route or page - only from a worker or a server action that owns the check.
@@ -37,10 +50,7 @@ const completionSchema = z.object({
   deliveredAt: timestampSchema.nullable(),
 });
 
-// Typed as a plain client until `pnpm db:types` produces a Database type; with
-// no generated schema the admin client resolves every rpc argument to
-// `undefined`. Swap in the generic once the types exist.
-function createSecretClient(): SupabaseClient {
+function createSecretClient(): SupabaseClient<Database> {
   const config = getWorkerConfig();
   if (!config.SUPABASE_URL || !config.SUPABASE_SECRET_KEY) {
     throw new RepositoryError(
@@ -54,13 +64,35 @@ function createSecretClient(): SupabaseClient {
       url: config.SUPABASE_URL,
       secretKeys: { default: config.SUPABASE_SECRET_KEY },
     },
-  }) as unknown as SupabaseClient;
+  });
 }
 
 export function createTrustedOperationsRepository(
-  client: SupabaseClient = createSecretClient(),
+  client: SupabaseClient<Database> = createSecretClient(),
 ): TrustedOperationsRepository {
   return {
+    async priceInterval(
+      input: PriceIntervalInput,
+    ): Promise<IntervalPricingResult> {
+      const result = await client.rpc("create_pricing_snapshot", {
+        p_community_id: input.communityId,
+        p_market_interval_id: input.intervalId,
+      });
+      const parsed = intervalPricingResultSchema.parse(unwrap(result));
+
+      // The schema enforces the priced/unpriced correlation at runtime through
+      // superRefine, but its inferred type keeps outcome and unitPrice
+      // independent. Narrow here so the domain union, where an unpriced
+      // outcome cannot carry a price, survives to the caller.
+      return parsed.outcome === "priced"
+        ? {
+            ...parsed,
+            outcome: "priced",
+            unitPrice: parsed.unitPrice as string,
+          }
+        : { ...parsed, outcome: parsed.outcome, unitPrice: null };
+    },
+
     async claimOutbox(
       workerId: string,
       limit: number,
@@ -83,7 +115,7 @@ export function createTrustedOperationsRepository(
         p_event_id: input.eventId,
         p_claim_token: input.claimToken,
         p_delivered: input.delivered,
-        p_error_code: input.errorCode ?? null,
+        p_error_code: input.errorCode ?? undefined,
       });
       return completionSchema.parse(unwrap(result));
     },
@@ -106,7 +138,7 @@ export function createTrustedOperationsRepository(
         p_community_id: input.communityId,
         p_actor_user_id: input.actorUserId,
         p_idempotency_key: input.idempotencyKey,
-        p_anchor_date: input.anchorDate ?? null,
+        p_anchor_date: input.anchorDate ?? undefined,
       });
       return resetDemoResultSchema.parse(unwrap(result));
     },

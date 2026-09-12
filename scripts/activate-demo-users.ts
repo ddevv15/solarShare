@@ -43,4 +43,10 @@ async function activateDemoUsers() {
   }
 }
 
-await activateDemoUsers();
+// Invoked rather than awaited at the top level: package.json has no
+// "type": "module", so tsx compiles this to CJS, where top-level await is a
+// syntax error and the script cannot run at all.
+activateDemoUsers().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+});

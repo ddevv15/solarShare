@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { PUBLIC_CONFIG_ELEMENT_ID, parsePublicAppConfig } from "./public";
+import {
+  PUBLIC_CONFIG_ELEMENT_ID,
+  parsePublicAppConfig,
+} from "@/lib/config/public";
 
 describe("parsePublicAppConfig", () => {
   it("returns only the values that may be sent to the browser", () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { RepositoryError } from "./errors";
+import { RepositoryError } from "@/repositories/errors";
 
 export function encodeCursor(cursor: Record<string, string>): string {
   const canonical = JSON.stringify(

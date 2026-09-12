@@ -1,0 +1,214 @@
+import { readFileSync } from "node:fs";
+
+import { describe, expect, it } from "vitest";
+
+const migrationsDirectory = new URL(
+  "../../supabase/migrations/",
+  import.meta.url,
+);
+
+const read = (file: string) =>
+  readFileSync(new URL(file, migrationsDirectory), "utf8");
+
+const foundation = read("202609120001_data_access_model.sql");
+const repair = read("202609120002_auth_repair_and_default_privileges.sql");
+const atomicOrders = read("202609120004_atomic_order_submission.sql");
+const marketplacePreview = read(
+  "202609120005_authoritative_marketplace_preview.sql",
+);
+const seed = readFileSync(
+  new URL("../../supabase/seed.sql", import.meta.url),
+  "utf8",
+);
+
+describe("default function privileges", () => {
+  // Postgres grants execute to PUBLIC on every new function, so the
+  // revoke-then-grant pattern in the foundation migration only protects objects
+  // that already exist. Without these, a later migration silently reintroduces
+  // a function anyone can call.
+  it("denies execution by default in both application schemas", () => {
+    expect(repair).toContain(
+      "alter default privileges in schema public\n  revoke execute on functions from public, anon, authenticated, service_role;",
+    );
+    expect(repair).toContain(
+      "alter default privileges in schema private\n  revoke execute on functions from public, anon, authenticated, service_role;",
+    );
+  });
+
+  it("keeps the hardening out of the already applied foundation migration", () => {
+    // 202609120001 is applied to the hosted project. Editing it would leave the
+    // file and the database permanently disagreeing, because db push skips a
+    // migration it has already recorded.
+    expect(foundation).not.toContain("alter default privileges");
+  });
+});
+
+describe("authoritative marketplace aggregation", () => {
+  it("shares one aggregation between the locked writer and unlocked preview", () => {
+    expect(marketplacePreview).toContain(
+      "create function private.aggregate_interval_orders(",
+    );
+    expect(
+      marketplacePreview.match(/from private\.aggregate_interval_orders\(/g),
+    ).toHaveLength(2);
+    expect(marketplacePreview.match(/sum\(remaining_kwh\)/g)).toHaveLength(2);
+    expect(marketplacePreview).toContain(
+      "revoke execute on function private.aggregate_interval_orders(uuid, uuid)\n  from public, anon, authenticated, service_role;",
+    );
+    expect(marketplacePreview).not.toContain(
+      "revoke execute on function public.create_pricing_snapshot(uuid, uuid)",
+    );
+
+    const writerStart = marketplacePreview.indexOf(
+      "create or replace function public.create_pricing_snapshot(",
+    );
+    const writerAggregate = marketplacePreview.indexOf(
+      "from private.aggregate_interval_orders(",
+      writerStart,
+    );
+    const previewStart = marketplacePreview.indexOf(
+      "create function public.read_marketplace_pricing_preview(",
+    );
+    const writerBody = marketplacePreview.slice(writerStart, previewStart);
+    const previewBody = marketplacePreview.slice(previewStart);
+
+    expect(writerStart).toBeGreaterThan(-1);
+    expect(writerAggregate).toBeLessThan(previewStart);
+    expect(writerBody.match(/for update;/g)).toHaveLength(3);
+    expect(writerBody.lastIndexOf("for update;")).toBeLessThan(
+      writerBody.indexOf("from private.aggregate_interval_orders("),
+    );
+    expect(previewBody).toContain("from private.aggregate_interval_orders(");
+    expect(previewBody).not.toContain("for update;");
+  });
+});
+
+describe("seeded auth identities", () => {
+  const tokenColumns = [
+    "confirmation_token",
+    "recovery_token",
+    "email_change",
+    "email_change_token_new",
+    "email_change_token_current",
+    "phone_change",
+    "phone_change_token",
+    "reauthentication_token",
+  ];
+  const repairTokenArray = repair.match(
+    /foreach token_column in array array\[([\s\S]*?)\]\s*loop/,
+  )?.[1];
+
+  // Auth scans these into non-nullable strings. A null makes every Auth query
+  // touching the row fail: sign-in returned 500 "Database error querying
+  // schema" and the admin user list returned 500 "Database error finding users".
+  it("maps every seeded token column to an empty string", () => {
+    const authUserColumns = [
+      "instance_id",
+      "id",
+      "aud",
+      "role",
+      "email",
+      "encrypted_password",
+      "email_confirmed_at",
+      "raw_app_meta_data",
+      "raw_user_meta_data",
+      "is_sso_user",
+      "is_anonymous",
+      "created_at",
+      "updated_at",
+      ...tokenColumns,
+    ];
+    const authUserValues = [
+      "'00000000-0000-0000-0000-000000000000'",
+      "person.id",
+      "'authenticated'",
+      "'authenticated'",
+      "person.email",
+      "null",
+      "origin",
+      "jsonb_build_object('provider','email','providers',array['email'])",
+      "jsonb_build_object('display_name',person.display_name)",
+      "false",
+      "false",
+      "origin",
+      "origin",
+      ...tokenColumns.map(() => "''"),
+    ];
+
+    expect(seed).toContain(
+      `insert into auth.users(${authUserColumns.join(",")})\n    values(${authUserValues.join(",")})`,
+    );
+  });
+
+  it.each(tokenColumns)("includes %s in the repair array", (column) => {
+    expect(repairTokenArray).toMatch(new RegExp(`^\\s*'${column}',?$`, "m"));
+  });
+
+  it("repairs every included token column with an empty string", () => {
+    expect(repair).toContain(
+      "update auth.users set %1$I = '''' where %1$I is null",
+    );
+  });
+});
+
+describe("atomic order submission", () => {
+  it("commits each order transition and idempotency result in one transaction", () => {
+    expect(atomicOrders).toMatch(/^begin;/);
+    expect(atomicOrders).toMatch(/commit;\s*$/);
+    expect(atomicOrders).toContain("create function public.submit_offer(");
+    expect(atomicOrders).toContain(
+      "update public.offers set status = 'open' where id = offer_id;",
+    );
+    expect(atomicOrders).toContain(
+      "update public.reservations set status = 'active' where id = reservation_id;",
+    );
+    expect(
+      atomicOrders.match(/insert into public\.idempotency_records\(/g),
+    ).toHaveLength(2);
+  });
+
+  it("returns the stored row for a matching retry and rejects changed inputs", () => {
+    expect(atomicOrders).toContain(
+      "operation_name constant text := 'offer.submit.v1'",
+    );
+    expect(atomicOrders).toContain(
+      "operation_name constant text := 'reservation.submit.v1'",
+    );
+    expect(
+      atomicOrders.match(/prior\.request_sha256 <> request_hash/g),
+    ).toHaveLength(2);
+    expect(atomicOrders).toContain(
+      "return (prior.result ->> 'offerId')::uuid;",
+    );
+    expect(atomicOrders).toContain(
+      "return (prior.result ->> 'reservationId')::uuid;",
+    );
+  });
+
+  it("serializes submissions and exposes the functions only to signed-in callers", () => {
+    expect(atomicOrders.match(/pg_advisory_xact_lock/g)).toHaveLength(2);
+    expect(atomicOrders.match(/authentication is required/g)).toHaveLength(2);
+    expect(atomicOrders.match(/to authenticated;/g)).toHaveLength(2);
+    expect(atomicOrders).not.toMatch(/to anon;/);
+  });
+});
+
+describe("marketplace pricing preview", () => {
+  it("aggregates every active order without a page limit", () => {
+    expect(marketplacePreview).toContain("sum(remaining_kwh)");
+    expect(marketplacePreview).toContain("max(minimum_price)");
+    expect(marketplacePreview).toContain("min(maximum_price)");
+    expect(marketplacePreview).not.toMatch(/\blimit\s+100\b/i);
+    expect(marketplacePreview).toContain(
+      "return private.calculate_interval_price(",
+    );
+  });
+
+  it("allows only active community members to read the aggregate", () => {
+    expect(marketplacePreview).toContain(
+      "if not private.is_active_member(p_community_id) then",
+    );
+    expect(marketplacePreview).toContain("to authenticated;");
+    expect(marketplacePreview).not.toMatch(/to anon;/);
+  });
+});

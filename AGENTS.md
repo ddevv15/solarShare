@@ -34,6 +34,10 @@ pnpm format:check
 pnpm test
 pnpm build
 pnpm check
+pnpm db:start:local
+pnpm db:reset:local
+pnpm db:push:linked
+pnpm db:types:linked
 ```
 
 ## Specs
@@ -52,3 +56,4 @@ Numbered specs live in `docs/specs/NNNN-title/`, with the decision in `index.md`
 * Read environment values through `src/lib/config`. Never expose server secrets through public configuration.
 * Provider reads follow the live, cache, then stored sample fallback order and retain visible source labels.
 * Place Vitest tests beside their source using `*.test.ts` or `*.test.tsx`.
+* Design system: build all UI to `design.md`; token values live in `src/app/globals.css`.

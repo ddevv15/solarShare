@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { mapAsset, mapLedgerEntry, mapProfile } from "./mappers";
+import {
+  mapAsset,
+  mapLedgerEntry,
+  mapProfile,
+  mapTariff,
+  mapTariffRow,
+} from "@/repositories/mappers";
 
 const profileRow = {
   id: "0b6f6f4e-2a1e-4c39-9d0f-2f4b1a3c5d6e",
@@ -97,5 +103,57 @@ describe("mapLedgerEntry", () => {
 
     expect(entry.entryType).toBe("credit");
     expect(entry.amount).toBe("1.04");
+  });
+});
+
+describe("mapTariffRow", () => {
+  it("maps an own_tariffs view row and keeps every rate as text", () => {
+    const tariff = mapTariffRow({
+      id: "40000000-0000-4000-8000-000000000001",
+      community_id: "10000000-0000-4000-8000-000000000001",
+      feed_in_rate: "3.500000",
+      retail_rate: "8.000000",
+      seller_margin_ratio: "0.100000",
+      buyer_discount_ratio: "0.100000",
+      effective_from: "2026-09-11T18:30:00+00:00",
+      effective_to: null,
+      created_by: "20000000-0000-4000-8000-000000000001",
+      created_at: "2026-09-11T18:30:00+00:00",
+    });
+
+    expect(tariff).toEqual({
+      id: "40000000-0000-4000-8000-000000000001",
+      communityId: "10000000-0000-4000-8000-000000000001",
+      feedInRate: "3.500000",
+      retailRate: "8.000000",
+      sellerMarginRatio: "0.100000",
+      buyerDiscountRatio: "0.100000",
+      effectiveFrom: "2026-09-11T18:30:00+00:00",
+      effectiveTo: null,
+      createdBy: "20000000-0000-4000-8000-000000000001",
+      createdAt: "2026-09-11T18:30:00+00:00",
+    });
+    expect(typeof tariff.feedInRate).toBe("string");
+    expect(typeof tariff.retailRate).toBe("string");
+  });
+});
+
+describe("mapTariff", () => {
+  it("keeps the operator RPC camel case contract", () => {
+    const tariff = mapTariff({
+      id: "40000000-0000-4000-8000-000000000001",
+      communityId: "10000000-0000-4000-8000-000000000001",
+      feedInRate: "3.500000",
+      retailRate: "8.000000",
+      sellerMarginRatio: "0.100000",
+      buyerDiscountRatio: "0.100000",
+      effectiveFrom: "2026-09-11T18:30:00+00:00",
+      effectiveTo: null,
+      createdBy: "20000000-0000-4000-8000-000000000001",
+      createdAt: "2026-09-11T18:30:00+00:00",
+    });
+
+    expect(tariff.feedInRate).toBe("3.500000");
+    expect(tariff.retailRate).toBe("8.000000");
   });
 });

@@ -5,6 +5,7 @@ docs/
 *.md
 *.pdf
 next-env.d.ts
+src/types/database.generated.ts
 pnpm-lock.yaml
 skills-lock.json
 tsconfig.tsbuildinfo

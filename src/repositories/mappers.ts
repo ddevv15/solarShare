@@ -14,7 +14,7 @@ import type {
   Reservation,
   SelectedReading,
   TariffConfig,
-} from "./domain";
+} from "@/repositories/domain";
 import {
   decimal2Schema,
   decimal6Schema,
@@ -23,7 +23,7 @@ import {
   signedDecimal2Schema,
   timestampSchema,
   uuidSchema,
-} from "./schemas";
+} from "@/repositories/schemas";
 
 const nullableDecimal = decimal6Schema.nullable();
 const rowBase = { id: uuidSchema, created_at: timestampSchema };
@@ -312,6 +312,34 @@ const tariffSchema = z.object({
 });
 export const mapTariff = (value: unknown): TariffConfig => {
   return tariffSchema.parse(value);
+};
+
+const tariffRowSchema = z.object({
+  id: uuidSchema,
+  community_id: uuidSchema,
+  feed_in_rate: decimal6Schema,
+  retail_rate: decimal6Schema,
+  seller_margin_ratio: decimal6Schema,
+  buyer_discount_ratio: decimal6Schema,
+  effective_from: timestampSchema,
+  effective_to: timestampSchema.nullable(),
+  created_by: uuidSchema,
+  created_at: timestampSchema,
+});
+export const mapTariffRow = (value: unknown): TariffConfig => {
+  const row = tariffRowSchema.parse(value);
+  return {
+    id: row.id,
+    communityId: row.community_id,
+    feedInRate: row.feed_in_rate,
+    retailRate: row.retail_rate,
+    sellerMarginRatio: row.seller_margin_ratio,
+    buyerDiscountRatio: row.buyer_discount_ratio,
+    effectiveFrom: row.effective_from,
+    effectiveTo: row.effective_to,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+  };
 };
 
 const feederSchema = z.object({

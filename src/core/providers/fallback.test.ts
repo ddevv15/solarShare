@@ -4,8 +4,8 @@ import {
   ProviderReadError,
   type ProviderCandidate,
   type ProviderLogger,
-} from "./contract";
-import { createFallbackProvider } from "./fallback";
+} from "@/core/providers/contract";
+import { createFallbackProvider } from "@/core/providers/fallback";
 
 type Input = { interval: string };
 type Output = { watts: number };
