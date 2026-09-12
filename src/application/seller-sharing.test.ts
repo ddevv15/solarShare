@@ -122,7 +122,6 @@ function repositories() {
     listIntervals: vi.fn().mockResolvedValue({ items: [selectedInterval] }),
     getTariffForInterval: vi.fn().mockResolvedValue(tariff),
     submitOffer: vi.fn(),
-    getFeederForInterval: vi.fn().mockResolvedValue(null),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
     submitReservation: vi.fn(),

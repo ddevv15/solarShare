@@ -41,6 +41,7 @@ function lowestLimit(items: MarketplaceItem[]): string | null {
   }, null);
 }
 
+/** Test oracle for checking database marketplace preview parity. */
 export function calculateMarketplacePreview(input: {
   currency: string;
   tariff: TariffConfig;

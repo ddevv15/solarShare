@@ -117,10 +117,6 @@ export interface MarketRepository {
     intervalStart: string,
   ): Promise<TariffConfig | null>;
   submitOffer(input: SubmitOfferInput): Promise<Offer>;
-  getFeederForInterval(
-    communityId: string,
-    intervalId: string,
-  ): Promise<FeederSnapshot | null>;
   createOffer(input: CreateOfferInput): Promise<Offer>;
   updateOffer(
     id: string,

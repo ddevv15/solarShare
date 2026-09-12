@@ -43,6 +43,46 @@ describe("default function privileges", () => {
   });
 });
 
+describe("authoritative marketplace aggregation", () => {
+  it("shares one aggregation between the locked writer and unlocked preview", () => {
+    expect(marketplacePreview).toContain(
+      "create function private.aggregate_interval_orders(",
+    );
+    expect(
+      marketplacePreview.match(/from private\.aggregate_interval_orders\(/g),
+    ).toHaveLength(2);
+    expect(marketplacePreview.match(/sum\(remaining_kwh\)/g)).toHaveLength(2);
+    expect(marketplacePreview).toContain(
+      "revoke execute on function private.aggregate_interval_orders(uuid, uuid)\n  from public, anon, authenticated, service_role;",
+    );
+    expect(marketplacePreview).not.toContain(
+      "revoke execute on function public.create_pricing_snapshot(uuid, uuid)",
+    );
+
+    const writerStart = marketplacePreview.indexOf(
+      "create or replace function public.create_pricing_snapshot(",
+    );
+    const writerAggregate = marketplacePreview.indexOf(
+      "from private.aggregate_interval_orders(",
+      writerStart,
+    );
+    const previewStart = marketplacePreview.indexOf(
+      "create function public.read_marketplace_pricing_preview(",
+    );
+    const writerBody = marketplacePreview.slice(writerStart, previewStart);
+    const previewBody = marketplacePreview.slice(previewStart);
+
+    expect(writerStart).toBeGreaterThan(-1);
+    expect(writerAggregate).toBeLessThan(previewStart);
+    expect(writerBody.match(/for update;/g)).toHaveLength(3);
+    expect(writerBody.lastIndexOf("for update;")).toBeLessThan(
+      writerBody.indexOf("from private.aggregate_interval_orders("),
+    );
+    expect(previewBody).toContain("from private.aggregate_interval_orders(");
+    expect(previewBody).not.toContain("for update;");
+  });
+});
+
 describe("seeded auth identities", () => {
   const tokenColumns = [
     "confirmation_token",
