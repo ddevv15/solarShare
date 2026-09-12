@@ -59,6 +59,8 @@ Define the minimum records and access boundaries for identities, communities, as
 - [x] Verify it: `/check verify data and access model` (verified by hand against the hosted project, not by an automated suite)
 - [x] Test it: `/test data and access model`
 
+**Open gap:** AC-12 asks for automated live database coverage of tenant isolation, retry safety, outbox concurrency and reset isolation. Unit coverage for mappers, cursors, decimals and error mapping exists, and the live behaviour was proven by hand against the hosted project, but nothing runs those checks automatically. Worth closing before anyone relies on this staying correct.
+
 ### 4. Minimal UI foundation · done · Alpha
 Set a deliberately plain visual baseline for navigation, forms, tables, status labels, source labels, and feedback states. Visual polish waits until the logic is proven.
 **Done when:** the app has a responsive shell, one clear action per screen, keyboard usable controls, visible focus, readable contrast, and reusable states for loading, empty data, failure, and success.
