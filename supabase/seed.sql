@@ -2,6 +2,10 @@ begin;
 
 select set_config('solarshare.trusted_write', 'on', true);
 
+-- GoTrue scans its token columns into non-nullable Go strings, so a seeded
+-- auth.users row that leaves them null breaks every Auth query touching it:
+-- sign-in returns 500 "Database error querying schema" and the admin user list
+-- returns 500 "Database error finding users". They must be empty string.
 do $$
 declare
   origin timestamptz := ('2026-09-12 00:00:00'::timestamp at time zone 'Asia/Kolkata');
@@ -25,8 +29,8 @@ begin
       ('20000000-0000-4000-8000-000000000006'::uuid, 'buyer4@solarshare.local', 'Kabir Buyer', 12.940000, 77.590000, 'household', 'River Home')
     ) as users(id, email, display_name, latitude_approx, longitude_approx, member_role, market_alias)
   loop
-    insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,is_sso_user,is_anonymous,created_at,updated_at)
-    values('00000000-0000-0000-0000-000000000000',person.id,'authenticated','authenticated',person.email,null,origin,jsonb_build_object('provider','email','providers',array['email']),jsonb_build_object('display_name',person.display_name),false,false,origin,origin)
+    insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,is_sso_user,is_anonymous,created_at,updated_at,confirmation_token,recovery_token,email_change,email_change_token_new,email_change_token_current,phone_change,phone_change_token,reauthentication_token)
+    values('00000000-0000-0000-0000-000000000000',person.id,'authenticated','authenticated',person.email,null,origin,jsonb_build_object('provider','email','providers',array['email']),jsonb_build_object('display_name',person.display_name),false,false,origin,origin,'','','','','','','','')
     on conflict (id) do update set email=excluded.email,raw_app_meta_data=excluded.raw_app_meta_data,raw_user_meta_data=excluded.raw_user_meta_data,updated_at=excluded.updated_at;
 
     insert into auth.identities(id,provider_id,user_id,identity_data,provider,last_sign_in_at,created_at,updated_at)
