@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
-    "build:check": "dotenv -e .env.example -- next build --webpack",
+    "build": "next build",
+    "build:check": "dotenv -e .env.example -- next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
