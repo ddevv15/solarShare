@@ -75,8 +75,6 @@ export default async function MarketplacePage({
   );
 
   const firstOffer = marketplace.offers[0];
-  const initialMaximumPrice =
-    firstOffer?.limitPrice ?? marketplace.tariff?.retailRate;
   const pricedPreview =
     marketplace.pricingPreview?.outcome === "priced"
       ? marketplace.pricingPreview
@@ -210,10 +208,9 @@ export default async function MarketplacePage({
             ) : null}
           </Card>
 
-          {firstOffer &&
-          marketplace.tariff &&
-          initialMaximumPrice &&
-          pricedPreview ? (
+          {marketplace.selectedInterval.status === "open" &&
+          firstOffer &&
+          marketplace.tariff ? (
             <ReservationForm
               key={marketplace.selectedInterval.id}
               idempotencyKey={crypto.randomUUID()}
@@ -221,9 +218,18 @@ export default async function MarketplacePage({
               initialQuantityKwh={normalizeDecimalString(
                 firstOffer.availableKwh,
               )}
-              initialMaximumPrice={normalizeDecimalString(initialMaximumPrice)}
-              marketUnitPrice={normalizeDecimalString(pricedPreview.unitPrice)}
-              pricingSummary={pricedPreview.explanation.summary}
+              initialMaximumPrice={normalizeDecimalString(
+                firstOffer.limitPrice ?? marketplace.tariff.retailRate,
+              )}
+              marketUnitPrice={
+                pricedPreview
+                  ? normalizeDecimalString(pricedPreview.unitPrice)
+                  : undefined
+              }
+              pricingSummary={
+                marketplace.pricingPreview?.explanation.summary ??
+                "A market price preview is not available."
+              }
               retailRate={normalizeDecimalString(marketplace.tariff.retailRate)}
             />
           ) : marketplace.offers.length ? (

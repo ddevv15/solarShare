@@ -32,17 +32,19 @@ type ReservationFormProps = {
   intervalId: string;
   initialQuantityKwh: string;
   initialMaximumPrice: string;
-  marketUnitPrice: string;
+  marketUnitPrice?: string;
   pricingSummary: string;
   retailRate: string;
 };
 
 function estimate(
   quantityKwh: string,
-  marketUnitPrice: string,
+  marketUnitPrice: string | undefined,
   maximumPrice: string,
   retailRate: string,
 ) {
+  if (!marketUnitPrice) return null;
+
   try {
     return estimateReservation(
       quantityKwh,
@@ -160,24 +162,36 @@ export function ReservationForm({
             </Field>
           </FieldGroup>
 
-          <dl className="grid gap-3 rounded-lg bg-muted p-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <dt className="text-sm text-muted-foreground">
-                Estimated maximum cost
-              </dt>
-              <dd className="text-xl font-semibold">
-                ₹{preview.estimatedCost}
-              </dd>
+          {preview ? (
+            <dl className="grid gap-3 rounded-lg bg-muted p-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <dt className="text-sm text-muted-foreground">
+                  Estimated maximum cost
+                </dt>
+                <dd className="text-xl font-semibold">
+                  ₹{preview.estimatedCost}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="text-sm text-muted-foreground">
+                  Estimated saving vs retail
+                </dt>
+                <dd className="text-xl font-semibold">
+                  ₹{preview.estimatedSaving}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="rounded-lg bg-muted p-4">
+              <p className="font-medium">
+                The final unit price is not determined yet.
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Submit the most you will pay per kWh. Cost and saving estimates
+                will be available after the market has active demand.
+              </p>
             </div>
-            <div className="flex flex-col gap-1">
-              <dt className="text-sm text-muted-foreground">
-                Estimated saving vs retail
-              </dt>
-              <dd className="text-xl font-semibold">
-                ₹{preview.estimatedSaving}
-              </dd>
-            </div>
-          </dl>
+          )}
 
           <Button type="submit" size="lg" disabled={pending}>
             <ShoppingBasket data-icon="inline-start" aria-hidden="true" />
@@ -186,9 +200,18 @@ export function ReservationForm({
         </form>
       </CardContent>
       <CardFooter className="text-sm leading-relaxed text-muted-foreground">
-        {pricingSummary} Your estimate uses this price, capped by your maximum,
-        and compares it with the active seeded retail rate. Final cost waits for
-        matching and settlement.
+        {marketUnitPrice ? (
+          <span>
+            {pricingSummary} Your estimate uses this price, capped by your
+            maximum, and compares it with the active seeded retail rate. Final
+            cost waits for matching and settlement.
+          </span>
+        ) : (
+          <span>
+            {pricingSummary} Your maximum price remains a limit. Final cost
+            waits for pricing, matching, and settlement.
+          </span>
+        )}
       </CardFooter>
     </Card>
   );
