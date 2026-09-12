@@ -98,10 +98,10 @@ Turn tariffs, local supply, demand, user limits, and the simulated import conges
 **Spec:** [0005](../specs/0005-explainable-pricing/index.md)
 - [x] Design it (spec): `/architect explainable pricing`
 - [x] Build it: `/develop explainable pricing`
-  - [ ] Build the exact versioned domain formula and shared pricing vectors, covers AC-1, AC-2, AC-10, and AC-11
-  - [ ] Build the trusted database calculator, snapshot writer, validation, locking, and grants in a forward migration, covers AC-1 through AC-9 and AC-11
-  - [ ] Build the typed repository and application boundary and replace the buyer estimate without restructuring the screen, covers AC-8 through AC-11
-  - [ ] Cover pricing outcomes, explanations, parity, and privilege boundaries, covers AC-1 through AC-11
+  - [x] Build the exact versioned domain formula and shared pricing vectors, covers AC-1, AC-2, AC-10, and AC-11
+  - [x] Build the trusted database calculator, snapshot writer, validation, locking, and grants in a forward migration, covers AC-1 through AC-9 and AC-11
+  - [x] Build the typed repository and application boundary and replace the buyer estimate without restructuring the screen, covers AC-8 through AC-11
+  - [x] Cover pricing outcomes, explanations, parity, and privilege boundaries, covers AC-1 through AC-11
 - [x] Verify it: `/check verify explainable pricing` (both implementations return 6.200000 on the live project)
 - [x] Test it: `/test explainable pricing`
 

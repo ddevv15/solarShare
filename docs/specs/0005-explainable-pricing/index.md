@@ -1,7 +1,7 @@
 # 0005. Define explainable market pricing
 
 **Date**: 2026-09-12
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
