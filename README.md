@@ -19,6 +19,25 @@ Open `http://localhost:3000`.
 
 The example environment uses safe local values. Replace the Supabase values after `supabase start` provides the local project URL and publishable key.
 
+### Database commands
+
+Local database commands require Docker:
+
+```bash
+pnpm db:start:local
+pnpm db:reset:local
+pnpm db:types:local
+```
+
+After linking the CLI to the hosted Supabase project, migrations and generated types can target that project:
+
+```bash
+pnpm db:push:linked
+pnpm db:types:linked
+```
+
+The shorter `db:start`, `db:reset`, and `db:types` commands remain aliases for the local variants. Review hosted migrations before running the linked push command.
+
 ## Configuration behavior
 
 The web server validates its configuration before it becomes ready. Missing core values produce a setup error. Browser code receives only the validated Supabase URL, publishable key, timezone, and currency through the root layout.

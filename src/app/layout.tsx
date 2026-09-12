@@ -6,7 +6,10 @@ import { getPublicAppConfig } from "@/lib/config/web";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SolarShare",
+  title: {
+    default: "SolarShare",
+    template: "%s | SolarShare",
+  },
   description: "A local solar credit marketplace for a seeded community.",
 };
 
