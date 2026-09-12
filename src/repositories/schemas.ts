@@ -249,6 +249,32 @@ export const pricingExplanationSchema = z.object({
     .nullable(),
   reason: z.string().nullable(),
 });
+export const pricingOutcomeSchema = z
+  .object({
+    algorithmVersion: z.literal("linear-pressure-v1"),
+    outcome: z.enum([
+      "priced",
+      "no_common_limit",
+      "invalid_tariff",
+      "missing_input",
+    ]),
+    unitPrice: fixedDecimal6Schema.nullable(),
+    explanation: pricingExplanationSchema,
+  })
+  .superRefine((value, context) => {
+    if ((value.outcome === "priced") !== (value.unitPrice !== null)) {
+      context.addIssue({
+        code: "custom",
+        message: "priced outcomes require a unit price",
+      });
+    }
+    if (value.explanation.outcome !== value.outcome) {
+      context.addIssue({
+        code: "custom",
+        message: "pricing outcome and explanation must agree",
+      });
+    }
+  });
 export const intervalPricingResultSchema = z
   .object({
     schemaVersion: z.literal("1"),

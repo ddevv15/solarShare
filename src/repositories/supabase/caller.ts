@@ -25,6 +25,7 @@ import type {
   SettlementDetail,
   TariffConfig,
 } from "../domain";
+import type { PricingOutcome } from "@/domain/pricing";
 import { mapDatabaseError, RepositoryError, unwrap } from "../errors";
 import {
   mapAsset,
@@ -63,6 +64,7 @@ import type {
 } from "../schemas";
 import {
   decimal6Schema,
+  pricingOutcomeSchema,
   submitOfferInputSchema,
   submitReservationInputSchema,
   timestampSchema,
@@ -285,6 +287,25 @@ export function createCommunityRepository(
         .maybeSingle();
       if (result.error) throw mapDatabaseError(result.error);
       return result.data ? mapCommunity(result.data) : null;
+    },
+
+    async getMarketplacePricingPreview(
+      communityId: string,
+      intervalId: string,
+    ): Promise<PricingOutcome> {
+      const result = await client.rpc("read_marketplace_pricing_preview", {
+        p_community_id: uuidSchema.parse(communityId),
+        p_market_interval_id: uuidSchema.parse(intervalId),
+      });
+      const parsed = pricingOutcomeSchema.parse(unwrap(result));
+
+      return parsed.outcome === "priced"
+        ? {
+            ...parsed,
+            outcome: "priced",
+            unitPrice: parsed.unitPrice as string,
+          }
+        : { ...parsed, outcome: parsed.outcome, unitPrice: null };
     },
 
     listMarketplace(

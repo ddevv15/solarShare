@@ -4,6 +4,7 @@ import {
   loadBuyerMarketplace,
   submitBuyerReservation,
 } from "@/application/buyer-marketplace";
+import { calculateMarketplacePreview } from "@/application/pricing";
 import type { ViewerContext } from "@/application/viewer";
 import type {
   MarketInterval,
@@ -94,10 +95,18 @@ const competingReservation: MarketplaceItem = {
   sourceLabel: "manual",
 };
 
+const pricingPreview = calculateMarketplacePreview({
+  currency: viewer.community.currency,
+  tariff,
+  feeder: null,
+  listings: [offer, competingReservation],
+});
+
 function repositories() {
   const community = {
     listOwnMemberships: vi.fn(),
     getCommunity: vi.fn(),
+    getMarketplacePricingPreview: vi.fn().mockResolvedValue(pricingPreview),
     listMarketplace: vi.fn().mockResolvedValue({
       items: [offer, competingReservation],
     }),
@@ -136,6 +145,59 @@ describe("buyer marketplace", () => {
       "community",
       selectedInterval.intervalStart,
     );
+    expect(
+      dependencies.community.getMarketplacePricingPreview,
+    ).toHaveBeenCalledWith("community", "interval");
+  });
+
+  it("uses the authoritative aggregate when active orders exceed one page", async () => {
+    const dependencies = repositories();
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...offer,
+      listingId: `offer-${index}`,
+      availableKwh: "1.000000",
+    }));
+    const orderBeyondFirstPage = {
+      ...competingReservation,
+      availableKwh: "100.000000",
+    };
+    const feeder = {
+      id: "feeder",
+      communityId: "community",
+      intervalId: "interval",
+      capacityKw: "10.000000",
+      loadKw: "4.000000",
+      congestionRatio: "0.400000",
+      sourceType: "simulated",
+      scenarioKey: null,
+      observedAt: selectedInterval.intervalStart,
+      createdAt: selectedInterval.intervalStart,
+    };
+    const authoritativePreview = calculateMarketplacePreview({
+      currency: viewer.community.currency,
+      tariff,
+      feeder,
+      listings: [...firstPage, orderBeyondFirstPage],
+    });
+    const subsetPreview = calculateMarketplacePreview({
+      currency: viewer.community.currency,
+      tariff,
+      feeder,
+      listings: firstPage,
+    });
+    dependencies.community.listMarketplace.mockResolvedValue({
+      items: firstPage,
+      nextCursor: "more-orders",
+    });
+    dependencies.community.getMarketplacePricingPreview.mockResolvedValue(
+      authoritativePreview,
+    );
+
+    const result = await loadBuyerMarketplace(viewer, dependencies, "interval");
+
+    expect(authoritativePreview).not.toEqual(subsetPreview);
+    expect(result.offers).toHaveLength(100);
+    expect(result.pricingPreview).toEqual(authoritativePreview);
   });
 
   it("activates a submitted reservation so it can enter matching", async () => {

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
-import { createMarketRepository } from "./caller";
+import { createCommunityRepository, createMarketRepository } from "./caller";
 
 const ids = {
   community: "10000000-0000-4000-8000-000000000001",
@@ -112,5 +112,68 @@ describe("createMarketRepository atomic submissions", () => {
     });
     expect(from).toHaveBeenCalledWith("own_reservations");
     expect(result.id).toBe(ids.order);
+  });
+});
+
+describe("createCommunityRepository marketplace pricing", () => {
+  it("reads one authoritative preview without converting decimal strings", async () => {
+    const preview = {
+      algorithmVersion: "linear-pressure-v1",
+      outcome: "priced",
+      unitPrice: "5.750000",
+      explanation: {
+        schemaVersion: "1",
+        summary: "Supply and demand set the price.",
+        outcome: "priced",
+        currency: "INR",
+        tariff: {
+          feedInRate: "3.500000",
+          retailRate: "8.000000",
+          midpoint: "5.750000",
+          protectedLowerBound: "3.950000",
+          protectedUpperBound: "7.550000",
+        },
+        market: {
+          supplyKwh: "101.000000",
+          demandKwh: "101.000000",
+          pressure: "0.000000",
+        },
+        congestion: {
+          ratio: "0.400000",
+          threshold: "0.500000",
+          pressure: "0.000000",
+        },
+        limits: {
+          highestSellerMinimum: "4.500000",
+          lowestBuyerMaximum: "6.500000",
+          effectiveLowerBound: "4.500000",
+          effectiveUpperBound: "6.500000",
+          bindingLimit: "none",
+        },
+        calculation: {
+          unclampedPrice: "5.750000",
+          roundedPrice: "5.750000",
+          finalPrice: "5.750000",
+          clampDirection: "none",
+        },
+        reason: null,
+      },
+    };
+    const rpc = vi.fn().mockResolvedValue({ data: preview, error: null });
+    const repository = createCommunityRepository({
+      rpc,
+    } as unknown as SupabaseClient);
+
+    const result = await repository.getMarketplacePricingPreview(
+      ids.community,
+      ids.interval,
+    );
+
+    expect(rpc).toHaveBeenCalledWith("read_marketplace_pricing_preview", {
+      p_community_id: ids.community,
+      p_market_interval_id: ids.interval,
+    });
+    expect(result.unitPrice).toBe("5.750000");
+    expect(result.explanation.market.supplyKwh).toBe("101.000000");
   });
 });

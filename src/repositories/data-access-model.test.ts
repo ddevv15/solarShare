@@ -13,6 +13,9 @@ const read = (file: string) =>
 const foundation = read("202609120001_data_access_model.sql");
 const repair = read("202609120002_auth_repair_and_default_privileges.sql");
 const atomicOrders = read("202609120004_atomic_order_submission.sql");
+const marketplacePreview = read(
+  "202609120005_authoritative_marketplace_preview.sql",
+);
 const seed = readFileSync(
   new URL("../../supabase/seed.sql", import.meta.url),
   "utf8",
@@ -147,5 +150,25 @@ describe("atomic order submission", () => {
     expect(atomicOrders.match(/authentication is required/g)).toHaveLength(2);
     expect(atomicOrders.match(/to authenticated;/g)).toHaveLength(2);
     expect(atomicOrders).not.toMatch(/to anon;/);
+  });
+});
+
+describe("marketplace pricing preview", () => {
+  it("aggregates every active order without a page limit", () => {
+    expect(marketplacePreview).toContain("sum(remaining_kwh)");
+    expect(marketplacePreview).toContain("max(minimum_price)");
+    expect(marketplacePreview).toContain("min(maximum_price)");
+    expect(marketplacePreview).not.toMatch(/\blimit\s+100\b/i);
+    expect(marketplacePreview).toContain(
+      "return private.calculate_interval_price(",
+    );
+  });
+
+  it("allows only active community members to read the aggregate", () => {
+    expect(marketplacePreview).toContain(
+      "if not private.is_active_member(p_community_id) then",
+    );
+    expect(marketplacePreview).toContain("to authenticated;");
+    expect(marketplacePreview).not.toMatch(/to anon;/);
   });
 });

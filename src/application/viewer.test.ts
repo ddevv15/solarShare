@@ -78,6 +78,7 @@ function makeRepositories(
   const communityRepository = {
     listOwnMemberships: vi.fn(async () => memberships),
     getCommunity: vi.fn(async () => resolvedCommunity),
+    getMarketplacePricingPreview: vi.fn(),
     listMarketplace: vi.fn(async () => ({ items: [] })),
     listMapFeatures: vi.fn(async () => ({ items: [] })),
     listOperatorMembers: vi.fn(async () => ({ items: [] })),

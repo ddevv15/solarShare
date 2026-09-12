@@ -28,6 +28,7 @@ import type {
   SettlementDetail,
   TariffConfig,
 } from "./domain";
+import type { PricingOutcome } from "@/domain/pricing";
 import type {
   AppendFeederSnapshotInput,
   AppendTariffInput,
@@ -58,6 +59,10 @@ export interface ProfileRepository {
 export interface CommunityRepository {
   listOwnMemberships(): Promise<CommunityMembership[]>;
   getCommunity(communityId: string): Promise<Community | null>;
+  getMarketplacePricingPreview(
+    communityId: string,
+    intervalId: string,
+  ): Promise<PricingOutcome>;
   listMarketplace(
     communityId: string,
     intervalId: string,

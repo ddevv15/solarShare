@@ -2,7 +2,6 @@ import {
   listScenarioPlanningIntervals,
   selectPlanningInterval,
 } from "@/application/market-planning";
-import { calculateMarketplacePreview } from "@/application/pricing";
 import {
   requireDashboardKind,
   ViewerAccessError,
@@ -60,7 +59,7 @@ export async function loadBuyerMarketplace(
     };
   }
 
-  const [marketplace, tariff, feeder] = await Promise.all([
+  const [marketplace, tariff, pricingPreview] = await Promise.all([
     repositories.community.listMarketplace(
       viewer.community.id,
       selectedInterval.id,
@@ -70,7 +69,7 @@ export async function loadBuyerMarketplace(
       viewer.community.id,
       selectedInterval.intervalStart,
     ),
-    repositories.market.getFeederForInterval(
+    repositories.community.getMarketplacePricingPreview(
       viewer.community.id,
       selectedInterval.id,
     ),
@@ -81,14 +80,7 @@ export async function loadBuyerMarketplace(
     selectedInterval,
     offers: marketplace.items.filter((item) => item.side === "offer"),
     tariff,
-    pricingPreview: tariff
-      ? calculateMarketplacePreview({
-          currency: viewer.community.currency,
-          tariff,
-          feeder,
-          listings: marketplace.items,
-        })
-      : null,
+    pricingPreview: tariff ? pricingPreview : null,
   };
 }
 
