@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 
 import { signOut } from "./actions";
 
@@ -11,8 +12,27 @@ export default async function ApplicationLayout({
 }: {
   children: ReactNode;
 }) {
-  const viewer = await getCurrentViewer();
-  if (!viewer) redirect("/sign-in");
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status === "anonymous") redirect("/sign-in");
+
+  if (viewerState.status === "unresolved") {
+    return (
+      <AppShell
+        user={{
+          displayName: viewerState.email || "Signed in account",
+          contextLabel: "Community access unavailable",
+        }}
+        signOutAction={signOut}
+      >
+        <ViewerAccessFeedback
+          reason={viewerState.reason}
+          signOutAction={signOut}
+        />
+      </AppShell>
+    );
+  }
+
+  const { viewer } = viewerState;
 
   return (
     <AppShell

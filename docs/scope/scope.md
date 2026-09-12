@@ -80,7 +80,7 @@ Give judges reliable seller, buyer, and operator entry points without spending t
 ### 6. Seller forecast and sharing · in-progress · assumed decision (spec 0004)
 Use repeatable simulated intervals to show generation, home demand, reserve, and shareable surplus. Keep provider adapters ready for keys, but do not make the demo depend on an external service.
 **Done when:** a seller can review tomorrow's labeled 15 minute estimates, approve or edit a suggested quantity, and publish an offer with a visible minimum price and source explanation.
-**Spec:** [0004](../specs/0004-forecast-visibility-rule.md) · assumed, owes ratification
+**Spec:** [0004](../specs/0004-forecast-visibility-rule/index.md) · assumed, owes ratification
 - [ ] Build it: `/develop seller forecast and sharing`
 
 ### 7. Buyer marketplace and reservation · planned

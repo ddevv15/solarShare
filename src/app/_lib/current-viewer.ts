@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { resolveViewerContext } from "@/application/viewer";
+import { resolveViewerState } from "@/application/viewer";
 import { createClient } from "@/lib/supabase/server";
 import {
   createAssetRepository,
@@ -10,18 +10,16 @@ import {
   createProfileRepository,
 } from "@/repositories/supabase/caller";
 
-export const getCurrentViewer = cache(async () => {
+export const getCurrentViewerState = cache(async () => {
   const client = await createClient();
   const { data, error } = await client.auth.getUser();
 
-  if (error || !data.user) return null;
+  const identity =
+    error || !data.user ? null : { id: data.user.id, email: data.user.email };
 
-  return resolveViewerContext(
-    { id: data.user.id, email: data.user.email },
-    {
-      profile: createProfileRepository(client),
-      community: createCommunityRepository(client),
-      asset: createAssetRepository(client),
-    },
-  );
+  return resolveViewerState(identity, {
+    profile: createProfileRepository(client),
+    community: createCommunityRepository(client),
+    asset: createAssetRepository(client),
+  });
 });
