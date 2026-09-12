@@ -358,4 +358,32 @@ export const mapFeeder = (value: unknown): FeederSnapshot => {
   return feederSchema.parse(value);
 };
 
+const feederRowSchema = z.object({
+  id: uuidSchema,
+  community_id: uuidSchema,
+  market_interval_id: uuidSchema,
+  capacity_kw: decimal6Schema,
+  load_kw: decimal6Schema,
+  congestion_ratio: decimal6Schema,
+  source_type: z.string(),
+  scenario_key: z.string().nullable(),
+  observed_at: timestampSchema,
+  created_at: timestampSchema,
+});
+export const mapFeederRow = (value: unknown): FeederSnapshot => {
+  const row = feederRowSchema.parse(value);
+  return {
+    id: row.id,
+    communityId: row.community_id,
+    intervalId: row.market_interval_id,
+    capacityKw: row.capacity_kw,
+    loadKw: row.load_kw,
+    congestionRatio: row.congestion_ratio,
+    sourceType: row.source_type,
+    scenarioKey: row.scenario_key,
+    observedAt: row.observed_at,
+    createdAt: row.created_at,
+  };
+};
+
 export const balanceSchema = signedDecimal2Schema;

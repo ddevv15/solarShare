@@ -27,6 +27,7 @@ function repositoryWithIntervals(items: MarketInterval[]): MarketRepository {
   return {
     listIntervals: vi.fn().mockResolvedValue({ items }),
     getTariffForInterval: vi.fn(),
+    getFeederForInterval: vi.fn(),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
     createReservation: vi.fn(),

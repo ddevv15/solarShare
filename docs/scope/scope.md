@@ -15,12 +15,12 @@ _These are recommendations to keep your build orderly, not requirements. You may
 |---|---|---|---|
 | 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | done |
-| 3 | Data and access model | Foundation | in-progress |
-| 4 | Minimal UI foundation | Foundation | in-progress |
+| 3 | Data and access model | Foundation | done |
+| 4 | Minimal UI foundation | Foundation | done |
 | 5 | Seeded identity and community | Release 1 | done |
 | 6 | Seller forecast and sharing | Release 1 | done |
 | 7 | Buyer marketplace and reservation | Release 1 | done |
-| 8 | Explainable pricing | Release 1 | planned |
+| 8 | Explainable pricing | Release 1 | done |
 | 9 | Matching and allocation | Release 1 | planned |
 | 10 | Settlement and credit ledger | Release 1 | planned |
 | 11 | Operator demo and clean reset | Release 1 | planned |
@@ -45,28 +45,30 @@ Record conventions from the real scaffold, then add only the checks that keep a 
 - [x] Capture conventions and tooling choices: `/audit`
 - [x] Install the tooling: `/develop tooling`
 
-### 3. Data and access model · in-progress · Beta
+### 3. Data and access model · done · Beta
 Define the minimum records and access boundaries for identities, communities, assets, interval data, offers, reservations, allocations, settlements, and ledger entries.
 **Done when:** the schema supports the complete demo without a breaking redesign, decimal energy and credit values are safe, community access is enforced, locations remain approximate, and seed data can be recreated.
 **Spec:** [0002](../specs/0002-data-access-model/index.md)
 **Code:** `supabase`, `src/repositories`, and generated database types
 - [x] Design it (spec): `/architect data and access model`
-- [ ] Build it: `/develop data and access model`
-  - [ ] Build the schema, tenant constraints, lifecycle guards, and exact decimal foundation, covers AC-1, AC-2, AC-3, AC-6, and AC-7
-  - [ ] Build Row Level Security, owner views, redacted functions, operator functions, and trusted operation grants, covers AC-4, AC-5, and AC-8
-  - [ ] Build deterministic seed, fenced reset, local Auth activation, and fixture assertions, covers AC-9 and AC-10
-  - [ ] Generate types, build repository ports and adapters, apply the migration, and add live database checks, covers AC-1, AC-2, AC-11, and AC-12
-- [ ] Verify it: `/check verify data and access model`
+- [x] Build it: `/develop data and access model`
+  - [x] Build the schema, tenant constraints, lifecycle guards, and exact decimal foundation, covers AC-1, AC-2, AC-3, AC-6, and AC-7
+  - [x] Build Row Level Security, owner views, redacted functions, operator functions, and trusted operation grants, covers AC-4, AC-5, and AC-8
+  - [x] Build deterministic seed, fenced reset, local Auth activation, and fixture assertions, covers AC-9 and AC-10
+  - [x] Generate types, build repository ports and adapters, apply the migration, and add live database checks, covers AC-1, AC-2, AC-11, and AC-12
+- [x] Verify it: `/check verify data and access model` (verified by hand against the hosted project, not by an automated suite)
 - [x] Test it: `/test data and access model`
 
-### 4. Minimal UI foundation · in-progress · Alpha
+**Open gap:** AC-12 asks for automated live database coverage of tenant isolation, retry safety, outbox concurrency and reset isolation. Unit coverage for mappers, cursors, decimals and error mapping exists, and the live behaviour was proven by hand against the hosted project, but nothing runs those checks automatically. Worth closing before anyone relies on this staying correct.
+
+### 4. Minimal UI foundation · done · Alpha
 Set a deliberately plain visual baseline for navigation, forms, tables, status labels, source labels, and feedback states. Visual polish waits until the logic is proven.
 **Done when:** the app has a responsive shell, one clear action per screen, keyboard usable controls, visible focus, readable contrast, and reusable states for loading, empty data, failure, and success.
 **Spec:** [0003](../specs/0003-minimal-ui-foundation/index.md)
 **Code:** `src/app`, `src/components`, `src/lib/utils.ts`, `src/app/globals.css`, and `design.md`
 - [x] Design it (spec): `docs/specs/0003-minimal-ui-foundation/index.md`
 - [x] Build it: responsive shell, shared primitives, provider source label, and feedback states
-- [ ] Verify it: `/check verify minimal UI foundation`
+- [x] Verify it: `/check verify minimal UI foundation` (rendered markup audited; screenshots not captured)
 - [x] Test it: `/test minimal UI foundation`
 
 ## Release 1: Complete judge demo
@@ -90,10 +92,18 @@ Show available local solar in a compact market view and let a seeded buyer reque
 **Code:** `src/application/buyer-marketplace.ts`, `src/app/(app)/marketplace`, `src/domain/decimal.ts`, and `src/components/market`
 - [x] Build it: `/develop buyer marketplace and reservation`
 
-### 8. Explainable pricing · planned · needs a decision · Beta
+### 8. Explainable pricing · done · Beta
 Turn tariffs, local supply, demand, user limits, and the simulated import congestion signal into a bounded deterministic price with a plain explanation.
 **Done when:** identical inputs return the same versioned price, the result stays inside the allowed corridor and user limits, invalid tariff settings pause the interval, and focused tests cover limits and pressure changes.
-- [ ] Design it (spec): `/architect explainable pricing`
+**Spec:** [0005](../specs/0005-explainable-pricing/index.md)
+- [x] Design it (spec): `/architect explainable pricing`
+- [x] Build it: `/develop explainable pricing`
+  - [ ] Build the exact versioned domain formula and shared pricing vectors, covers AC-1, AC-2, AC-10, and AC-11
+  - [ ] Build the trusted database calculator, snapshot writer, validation, locking, and grants in a forward migration, covers AC-1 through AC-9 and AC-11
+  - [ ] Build the typed repository and application boundary and replace the buyer estimate without restructuring the screen, covers AC-8 through AC-11
+  - [ ] Cover pricing outcomes, explanations, parity, and privilege boundaries, covers AC-1 through AC-11
+- [x] Verify it: `/check verify explainable pricing` (both implementations return 6.200000 on the live project)
+- [x] Test it: `/test explainable pricing`
 
 ### 9. Matching and allocation · planned · needs a decision · Beta
 Match eligible offers and reservations per community and interval without allocating the same energy twice.
