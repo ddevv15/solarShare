@@ -12,7 +12,7 @@ const read = (file: string) =>
 
 const foundation = read("202609120001_data_access_model.sql");
 const repair = read("202609120002_auth_repair_and_default_privileges.sql");
-const atomicOrders = read("202609120003_atomic_order_submission.sql");
+const atomicOrders = read("202609120004_atomic_order_submission.sql");
 const seed = readFileSync(
   new URL("../../supabase/seed.sql", import.meta.url),
   "utf8",

@@ -77,6 +77,10 @@ export default async function MarketplacePage({
   const firstOffer = marketplace.offers[0];
   const initialMaximumPrice =
     firstOffer?.limitPrice ?? marketplace.tariff?.retailRate;
+  const pricedPreview =
+    marketplace.pricingPreview?.outcome === "priced"
+      ? marketplace.pricingPreview
+      : null;
 
   return (
     <>
@@ -206,7 +210,10 @@ export default async function MarketplacePage({
             ) : null}
           </Card>
 
-          {firstOffer && marketplace.tariff && initialMaximumPrice ? (
+          {firstOffer &&
+          marketplace.tariff &&
+          initialMaximumPrice &&
+          pricedPreview ? (
             <ReservationForm
               key={marketplace.selectedInterval.id}
               idempotencyKey={crypto.randomUUID()}
@@ -215,13 +222,18 @@ export default async function MarketplacePage({
                 firstOffer.availableKwh,
               )}
               initialMaximumPrice={normalizeDecimalString(initialMaximumPrice)}
+              marketUnitPrice={normalizeDecimalString(pricedPreview.unitPrice)}
+              pricingSummary={pricedPreview.explanation.summary}
               retailRate={normalizeDecimalString(marketplace.tariff.retailRate)}
             />
           ) : marketplace.offers.length ? (
             <FeedbackState
               state="failure"
               title="Reservation estimate unavailable"
-              description="An active community tariff is required before cost and saving can be estimated."
+              description={
+                marketplace.pricingPreview?.explanation.summary ??
+                "An active community tariff is required before cost and saving can be estimated."
+              }
             />
           ) : null}
         </>

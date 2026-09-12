@@ -8,15 +8,22 @@ import { z } from "zod";
 
 import { getWorkerConfig } from "@/lib/config/worker";
 
-import type { OutboxCompletion, OutboxEvent, ResetDemoResult } from "../domain";
+import type {
+  IntervalPricingResult,
+  OutboxCompletion,
+  OutboxEvent,
+  ResetDemoResult,
+} from "../domain";
 import { mapDatabaseError, RepositoryError, unwrap } from "../errors";
 import type { TrustedOperationsRepository } from "../ports";
 import type {
   CompleteOutboxInput,
   PostLedgerInput,
+  PriceIntervalInput,
   ResetDemoInput,
 } from "../schemas";
 import {
+  intervalPricingResultSchema,
   outboxEventSchema,
   resetDemoResultSchema,
   timestampSchema,
@@ -24,7 +31,7 @@ import {
 } from "../schemas";
 
 /**
- * Trusted operations. These are the only four functions a secret client may
+ * Trusted operations. These are the only named functions a secret client may
  * call: the migration revokes `service_role` from every table, so this adapter
  * has no generic privileged query surface. It must never be reached from a
  * route or page - only from a worker or a server action that owns the check.
@@ -60,6 +67,28 @@ export function createTrustedOperationsRepository(
   client: SupabaseClient<Database> = createSecretClient(),
 ): TrustedOperationsRepository {
   return {
+    async priceInterval(
+      input: PriceIntervalInput,
+    ): Promise<IntervalPricingResult> {
+      const result = await client.rpc("create_pricing_snapshot", {
+        p_community_id: input.communityId,
+        p_market_interval_id: input.intervalId,
+      });
+      const parsed = intervalPricingResultSchema.parse(unwrap(result));
+
+      // The schema enforces the priced/unpriced correlation at runtime through
+      // superRefine, but its inferred type keeps outcome and unitPrice
+      // independent. Narrow here so the domain union, where an unpriced
+      // outcome cannot carry a price, survives to the caller.
+      return parsed.outcome === "priced"
+        ? {
+            ...parsed,
+            outcome: "priced",
+            unitPrice: parsed.unitPrice as string,
+          }
+        : { ...parsed, outcome: parsed.outcome, unitPrice: null };
+    },
+
     async claimOutbox(
       workerId: string,
       limit: number,

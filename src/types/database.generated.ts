@@ -2445,6 +2445,13 @@ export type Database = {
         }
         Returns: Json[]
       }
+      create_pricing_snapshot: {
+        Args: {
+          p_community_id: string
+          p_market_interval_id: string
+        }
+        Returns: Json
+      }
       complete_outbox_event: {
         Args: {
           p_claim_token: string

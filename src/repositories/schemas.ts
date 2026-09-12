@@ -15,6 +15,12 @@ const boundedCoordinate = (limit: number) =>
   );
 
 export const decimal6Schema = unsignedDecimal(6);
+export const fixedDecimal6Schema = z
+  .string()
+  .regex(/^(0|[1-9][0-9]*)\.[0-9]{6}$/);
+export const signedFixedDecimal6Schema = z
+  .string()
+  .regex(/^-?(0|[1-9][0-9]*)\.[0-9]{6}$/);
 export const decimal2Schema = unsignedDecimal(2);
 export const signedDecimal2Schema = signedDecimal(2);
 export const latitudeSchema = boundedCoordinate(90);
@@ -184,6 +190,102 @@ export const resetDemoInputSchema = z.object({
   idempotencyKey: z.string().trim().min(1),
   anchorDate: dateSchema.optional(),
 });
+export const priceIntervalInputSchema = z.object({
+  communityId: uuidSchema,
+  intervalId: uuidSchema,
+});
+
+const tariffExplanationSchema = z.object({
+  feedInRate: fixedDecimal6Schema,
+  retailRate: fixedDecimal6Schema,
+  midpoint: fixedDecimal6Schema,
+  protectedLowerBound: fixedDecimal6Schema,
+  protectedUpperBound: fixedDecimal6Schema,
+});
+const marketExplanationSchema = z.object({
+  supplyKwh: fixedDecimal6Schema,
+  demandKwh: fixedDecimal6Schema,
+  pressure: signedFixedDecimal6Schema,
+});
+const congestionExplanationSchema = z.object({
+  ratio: fixedDecimal6Schema,
+  threshold: z.literal("0.500000"),
+  pressure: fixedDecimal6Schema,
+});
+const limitsExplanationSchema = z.object({
+  highestSellerMinimum: fixedDecimal6Schema.nullable(),
+  lowestBuyerMaximum: fixedDecimal6Schema.nullable(),
+  effectiveLowerBound: fixedDecimal6Schema,
+  effectiveUpperBound: fixedDecimal6Schema,
+  bindingLimit: z.enum([
+    "none",
+    "seller_minimum",
+    "buyer_maximum",
+    "tariff_seller_protection",
+    "tariff_buyer_protection",
+  ]),
+});
+export const pricingExplanationSchema = z.object({
+  schemaVersion: z.literal("1"),
+  summary: z.string().trim().min(1),
+  outcome: z.enum([
+    "priced",
+    "no_common_limit",
+    "invalid_tariff",
+    "missing_input",
+  ]),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  tariff: tariffExplanationSchema.nullable(),
+  market: marketExplanationSchema,
+  congestion: congestionExplanationSchema.nullable(),
+  limits: limitsExplanationSchema.nullable(),
+  calculation: z
+    .object({
+      unclampedPrice: fixedDecimal6Schema,
+      roundedPrice: fixedDecimal6Schema,
+      finalPrice: fixedDecimal6Schema,
+      clampDirection: z.enum(["none", "lower", "upper"]),
+    })
+    .nullable(),
+  reason: z.string().nullable(),
+});
+export const intervalPricingResultSchema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    algorithmVersion: z.literal("linear-pressure-v1"),
+    outcome: z.enum([
+      "priced",
+      "no_common_limit",
+      "invalid_tariff",
+      "missing_input",
+    ]),
+    pricingSnapshotId: uuidSchema.nullable(),
+    communityId: uuidSchema,
+    marketIntervalId: uuidSchema,
+    tariffConfigId: uuidSchema.nullable(),
+    feederSnapshotId: uuidSchema.nullable(),
+    supplyKwh: fixedDecimal6Schema,
+    demandKwh: fixedDecimal6Schema,
+    unitPrice: fixedDecimal6Schema.nullable(),
+    explanation: pricingExplanationSchema,
+  })
+  .superRefine((value, context) => {
+    const priced = value.outcome === "priced";
+    if (
+      priced !== (value.pricingSnapshotId !== null && value.unitPrice !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "priced outcomes require a snapshot id and unit price",
+      });
+    }
+    if (value.explanation.outcome !== value.outcome) {
+      context.addIssue({
+        code: "custom",
+        message: "pricing outcome and explanation must agree",
+      });
+    }
+  });
 
 export const resetDemoResultSchema = z.object({
   schemaVersion: z.literal("1"),
@@ -238,3 +340,4 @@ export type TransitionIntervalInput = z.infer<
 export type CompleteOutboxInput = z.infer<typeof completeOutboxInputSchema>;
 export type PostLedgerInput = z.infer<typeof postLedgerInputSchema>;
 export type ResetDemoInput = z.infer<typeof resetDemoInputSchema>;
+export type PriceIntervalInput = z.infer<typeof priceIntervalInputSchema>;
