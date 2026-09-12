@@ -8,3 +8,4 @@ next-env.d.ts
 pnpm-lock.yaml
 skills-lock.json
 tsconfig.tsbuildinfo
+.claude/

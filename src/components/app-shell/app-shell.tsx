@@ -1,0 +1,124 @@
+import { Home, Sun, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+import { StatusLabel } from "@/components/foundation/status-label";
+import { cn } from "@/lib/utils";
+
+export type AppNavigationItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type AppShellProps = {
+  children: ReactNode;
+  currentPath?: string;
+  navigation?: ReadonlyArray<AppNavigationItem>;
+};
+
+const foundationNavigation: ReadonlyArray<AppNavigationItem> = [
+  { href: "/", label: "Overview", icon: Home },
+];
+
+function Brand() {
+  return (
+    <Link
+      href="/"
+      className="inline-flex min-h-11 items-center gap-3 rounded-md font-semibold text-foreground"
+    >
+      <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <Sun aria-hidden="true" className="size-5" />
+      </span>
+      <span>SolarShare</span>
+    </Link>
+  );
+}
+
+function Navigation({
+  currentPath,
+  items,
+}: {
+  currentPath: string;
+  items: ReadonlyArray<AppNavigationItem>;
+}) {
+  return (
+    <nav aria-label="Primary navigation">
+      <ul className="flex gap-2 lg:flex-col">
+        {items.map(({ href, icon: Icon, label }) => {
+          const isCurrent = currentPath === href;
+
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                aria-current={isCurrent ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                  isCurrent && "bg-accent text-accent-foreground",
+                )}
+              >
+                <Icon aria-hidden="true" className="size-4" />
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+export function AppShell({
+  children,
+  currentPath = "/",
+  navigation = foundationNavigation,
+}: AppShellProps) {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="fixed start-4 top-4 -translate-y-24 rounded-md bg-primary px-4 py-3 font-medium text-primary-foreground transition-transform focus:translate-y-0"
+      >
+        Skip to content
+      </a>
+
+      <header className="border-b bg-card px-4 py-3 lg:hidden">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Brand />
+          <Navigation currentPath={currentPath} items={navigation} />
+        </div>
+      </header>
+
+      <div className="mx-auto grid min-h-screen max-w-screen-2xl lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="hidden border-e bg-card lg:flex lg:flex-col lg:justify-between lg:p-6">
+          <div className="flex flex-col gap-8">
+            <Brand />
+            <Navigation currentPath={currentPath} items={navigation} />
+          </div>
+          <div className="flex flex-col gap-2 border-t pt-5">
+            <StatusLabel tone="success">Foundation ready</StatusLabel>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Demo workspace
+            </p>
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-col">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 p-4 sm:p-6 lg:p-10"
+          >
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+              {children}
+            </div>
+          </main>
+          <footer className="border-t px-4 py-5 text-center text-sm text-muted-foreground sm:px-6 lg:px-10">
+            SolarShare community energy demo
+          </footer>
+        </div>
+      </div>
+    </div>
+  );
+}

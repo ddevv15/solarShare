@@ -16,7 +16,7 @@ _These are recommendations to keep your build orderly, not requirements. You may
 | 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data and access model | Foundation | in-progress |
-| 4 | Minimal UI foundation | Foundation | planned |
+| 4 | Minimal UI foundation | Foundation | in-progress |
 | 5 | Seeded identity and community | Release 1 | planned |
 | 6 | Seller forecast and sharing | Release 1 | planned |
 | 7 | Buyer marketplace and reservation | Release 1 | planned |
@@ -24,6 +24,7 @@ _These are recommendations to keep your build orderly, not requirements. You may
 | 9 | Matching and allocation | Release 1 | planned |
 | 10 | Settlement and credit ledger | Release 1 | planned |
 | 11 | Operator demo and clean reset | Release 1 | planned |
+| 12 | Realtime invalidation updates | Release 1 | planned |
 
 ## Foundations
 
@@ -58,10 +59,15 @@ Define the minimum records and access boundaries for identities, communities, as
 - [ ] Verify it: `/check verify data and access model`
 - [ ] Test it: `/test data and access model`
 
-### 4. Minimal UI foundation · planned · needs a decision
+### 4. Minimal UI foundation · in-progress · Alpha
 Set a deliberately plain visual baseline for navigation, forms, tables, status labels, source labels, and feedback states. Visual polish waits until the logic is proven.
 **Done when:** the app has a responsive shell, one clear action per screen, keyboard usable controls, visible focus, readable contrast, and reusable states for loading, empty data, failure, and success.
-- [ ] Design it (spec): `/architect minimal UI foundation`
+**Spec:** [0003](../specs/0003-minimal-ui-foundation/index.md)
+**Code:** `src/app`, `src/components`, `src/lib/utils.ts`, `src/app/globals.css`, and `design.md`
+- [x] Design it (spec): `docs/specs/0003-minimal-ui-foundation/index.md`
+- [x] Build it: responsive shell, shared primitives, provider source label, and feedback states
+- [ ] Verify it: `/check verify minimal UI foundation`
+- [x] Test it: `/test minimal UI foundation`
 
 ## Release 1: Complete judge demo
 
@@ -100,13 +106,19 @@ Provide the smallest control surface needed to demonstrate tariff and feeder cha
 **Done when:** an operator can select the normal or constrained feeder scenario, change valid tariffs, observe the resulting price state, inspect the completed trade, and reset all seeded demo data.
 - [ ] Build it: `/develop operator demo and clean reset`
 
+### 12. Realtime invalidation updates · planned · needs a decision
+Refresh offers, reservations, allocations, settlements, and feeder state across open sessions over Supabase Realtime websockets. Application tables stay out of the Realtime publication: the socket carries invalidation signals, not rows, so a subscriber never receives data it could not already read through Row Level Security. Signals ride the existing outbox contract of community UUID, coarse topic, aggregate UUID, and revision, and clients refetch through the protected reads.
+**Done when:** an open seller, buyer, or operator session reflects a change made in another session without a manual refresh, a subscriber is authorized against active community membership, no application table is added to the Realtime publication, and a dropped socket recovers without losing a change.
+**Spec:** [0004](../specs/0004-realtime-invalidation/index.md)
+- [ ] Design it (spec): `/architect realtime invalidation updates`
+- [ ] Build it: publisher draining the outbox, private channel authorization, and the client subscriber
+
 ## Deferred
 
 These features can grow the same product after Release 1 works. They should not block tomorrow's judge demo.
 
 * **Live weather and solar activation:** connect the prepared provider adapters once keys are available, with cached and sample fallbacks.
 * **CSV import and export:** validate, preview, commit, and export interval data and market results.
-* **Realtime updates:** refresh offers, reservations, allocations, settlements, and feeder state across open sessions.
 * **Community map:** show approximate activity without addresses or account identifiers.
 * **Public onboarding:** add sign up, profile editing, location selection, join codes, and broader community management.
 * **Full operator workspace:** add member management, interval controls, audit history, and data health views.
