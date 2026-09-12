@@ -5,7 +5,7 @@ import { FeedbackState } from "@/components/foundation/feedback-state";
 import { LoadingState } from "@/components/foundation/loading-state";
 
 describe("foundation feedback states", () => {
-  it("renders an empty state with an explicit state marker", () => {
+  it("exposes the empty state as a region named by its visible title (covers: AC-3)", () => {
     const html = renderToStaticMarkup(
       <FeedbackState
         state="empty"
@@ -17,6 +17,14 @@ describe("foundation feedback states", () => {
     expect(html).toContain('data-state="empty"');
     expect(html).toContain("No offers");
     expect(html).toContain("Published offers will appear here.");
+    expect(html).toContain('role="region"');
+
+    const titleId = html.match(/aria-labelledby="([^"]+)"/)?.[1];
+
+    expect(titleId).toBeDefined();
+    expect(html).toMatch(
+      new RegExp(`<h3[^>]*id="${titleId}"[^>]*>No offers</h3>`),
+    );
   });
 
   it("announces failures urgently and success politely", () => {

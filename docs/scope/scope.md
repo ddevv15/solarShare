@@ -67,7 +67,7 @@ Set a deliberately plain visual baseline for navigation, forms, tables, status l
 - [x] Design it (spec): `docs/specs/0003-minimal-ui-foundation/index.md`
 - [x] Build it: responsive shell, shared primitives, provider source label, and feedback states
 - [ ] Verify it: `/check verify minimal UI foundation`
-- [ ] Test it: `/test minimal UI foundation`
+- [x] Test it: `/test minimal UI foundation`
 
 ## Release 1: Complete judge demo
 
