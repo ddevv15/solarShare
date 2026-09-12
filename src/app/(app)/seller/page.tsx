@@ -31,8 +31,8 @@ import {
   createMarketRepository,
 } from "@/repositories/supabase/caller";
 
-import { OfferForm } from "./offer-form";
-import { signOut } from "../actions";
+import { signOut } from "@/app/(app)/actions";
+import { OfferForm } from "@/app/(app)/seller/offer-form";
 
 export const metadata: Metadata = {
   title: "Seller forecast | SolarShare",

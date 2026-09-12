@@ -6,7 +6,7 @@ import {
   mapProfile,
   mapTariff,
   mapTariffRow,
-} from "./mappers";
+} from "@/repositories/mappers";
 
 const profileRow = {
   id: "0b6f6f4e-2a1e-4c39-9d0f-2f4b1a3c5d6e",

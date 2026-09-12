@@ -4,7 +4,7 @@ import {
   publicEnvironmentSchema,
   webEnvironmentSchema,
   workerEnvironmentSchema,
-} from "./schema";
+} from "@/lib/config/schema";
 
 const validWebEnvironment = {
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",

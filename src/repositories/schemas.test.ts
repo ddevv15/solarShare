@@ -9,7 +9,7 @@ import {
   submitOfferInputSchema,
   submitReservationInputSchema,
   updateProfileInputSchema,
-} from "./schemas";
+} from "@/repositories/schemas";
 
 describe("decimal contracts", () => {
   it("keeps a decimal exact instead of routing it through a number", () => {

@@ -4,7 +4,7 @@ const validateWebConfigAtStartup = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/config/web", () => ({ validateWebConfigAtStartup }));
 
-import { register } from "./instrumentation";
+import { register } from "@/instrumentation";
 
 afterEach(() => {
   vi.unstubAllEnvs();

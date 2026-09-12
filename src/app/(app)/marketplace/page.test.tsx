@@ -32,7 +32,7 @@ vi.mock("@/app/(app)/marketplace/reservation-form", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
-import MarketplacePage from "./page";
+import MarketplacePage from "@/app/(app)/marketplace/page";
 
 describe("MarketplacePage", () => {
   it("keeps wide offer content inside a named local scroll region", async () => {

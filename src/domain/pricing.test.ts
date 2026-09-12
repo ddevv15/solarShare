@@ -5,7 +5,7 @@ import {
   PRICING_ALGORITHM_VERSION,
   type PricingInput,
   type PricingOutcome,
-} from "./pricing";
+} from "@/domain/pricing";
 
 /**
  * The seeded community: feed in 3.5, retail 8.0, both protection ratios 0.1,

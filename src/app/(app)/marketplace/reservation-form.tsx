@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { estimateReservation } from "@/domain/decimal";
 
-import { reserveEnergyAction } from "./actions";
+import { reserveEnergyAction } from "@/app/(app)/marketplace/actions";
 
 type ReservationFormProps = {
   idempotencyKey: string;

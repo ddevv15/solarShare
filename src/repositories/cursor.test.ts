@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { decodeCursor, encodeCursor, pageFromRows } from "./cursor";
-import { RepositoryError } from "./errors";
+import {
+  decodeCursor,
+  encodeCursor,
+  pageFromRows,
+} from "@/repositories/cursor";
+import { RepositoryError } from "@/repositories/errors";
 
 const shape = { settled_at: z.string(), id: z.string() };
 

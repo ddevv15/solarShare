@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Table, TableBody, TableCell, TableRow } from "./table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
 describe("Table", () => {
   it("exposes a named keyboard-reachable scroll region", () => {

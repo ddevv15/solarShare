@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
 
-import { ConfigurationError } from "./errors";
+import { ConfigurationError } from "@/lib/config/errors";
 
 describe("ConfigurationError", () => {
   it("reports field names without including rejected secret values", () => {

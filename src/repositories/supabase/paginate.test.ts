@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { encodeCursor } from "../cursor";
-import { RepositoryError } from "../errors";
-import { decodeCursorJson, MAX_PAGE_LIMIT, paginate } from "./paginate";
+import { encodeCursor } from "@/repositories/cursor";
+import { RepositoryError } from "@/repositories/errors";
+import {
+  decodeCursorJson,
+  MAX_PAGE_LIMIT,
+  paginate,
+} from "@/repositories/supabase/paginate";
 
 type Item = { id: string };
 

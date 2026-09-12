@@ -5,7 +5,7 @@ import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 
-import { signOut } from "./actions";
+import { signOut } from "@/app/(app)/actions";
 
 export default async function ApplicationLayout({
   children,

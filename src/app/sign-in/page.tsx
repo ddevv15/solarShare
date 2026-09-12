@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-import { signIn } from "./actions";
+import { signIn } from "@/app/sign-in/actions";
 
 type SignInPageProps = {
   searchParams: Promise<{ error?: string | string[] }>;

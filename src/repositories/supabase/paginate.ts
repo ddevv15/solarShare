@@ -1,6 +1,6 @@
-import { encodeCursor, pageFromRows } from "../cursor";
-import type { Page } from "../domain";
-import { RepositoryError } from "../errors";
+import { encodeCursor, pageFromRows } from "@/repositories/cursor";
+import type { Page } from "@/repositories/domain";
+import { RepositoryError } from "@/repositories/errors";
 
 /** Spec 0002: every list function caps `p_limit` at 100. */
 export const MAX_PAGE_LIMIT = 100;

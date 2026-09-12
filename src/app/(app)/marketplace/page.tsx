@@ -35,8 +35,8 @@ import {
   createMarketRepository,
 } from "@/repositories/supabase/caller";
 
-import { ReservationForm } from "./reservation-form";
-import { signOut } from "../actions";
+import { signOut } from "@/app/(app)/actions";
+import { ReservationForm } from "@/app/(app)/marketplace/reservation-form";
 
 export const metadata: Metadata = {
   title: "Community marketplace | SolarShare",

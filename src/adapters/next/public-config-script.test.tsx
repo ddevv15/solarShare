@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PublicConfigScript } from "./public-config-script";
+import { PublicConfigScript } from "@/adapters/next/public-config-script";
 
 describe("PublicConfigScript", () => {
   it("serializes the public configuration into the expected script element", () => {

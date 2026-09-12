@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
-import { createCommunityRepository, createMarketRepository } from "./caller";
+import {
+  createCommunityRepository,
+  createMarketRepository,
+} from "@/repositories/supabase/caller";
 
 const ids = {
   community: "10000000-0000-4000-8000-000000000001",

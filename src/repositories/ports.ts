@@ -27,7 +27,7 @@ import type {
   SelectedReading,
   SettlementDetail,
   TariffConfig,
-} from "./domain";
+} from "@/repositories/domain";
 import type { PricingOutcome } from "@/domain/pricing";
 import type {
   AppendFeederSnapshotInput,
@@ -49,7 +49,7 @@ import type {
   UpdateOfferInput,
   UpdateProfileInput,
   UpdateReservationInput,
-} from "./schemas";
+} from "@/repositories/schemas";
 
 export interface ProfileRepository {
   getOwnProfile(): Promise<Profile | null>;

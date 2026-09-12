@@ -14,7 +14,7 @@ import type {
   Reservation,
   SelectedReading,
   TariffConfig,
-} from "./domain";
+} from "@/repositories/domain";
 import {
   decimal2Schema,
   decimal6Schema,
@@ -23,7 +23,7 @@ import {
   signedDecimal2Schema,
   timestampSchema,
   uuidSchema,
-} from "./schemas";
+} from "@/repositories/schemas";
 
 const nullableDecimal = decimal6Schema.nullable();
 const rowBase = { id: uuidSchema, created_at: timestampSchema };

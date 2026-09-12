@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { mapDatabaseError, RepositoryError, unwrap } from "./errors";
+import {
+  mapDatabaseError,
+  RepositoryError,
+  unwrap,
+} from "@/repositories/errors";
 
 describe("mapDatabaseError", () => {
   it.each([

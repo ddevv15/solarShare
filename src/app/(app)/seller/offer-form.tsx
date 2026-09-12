@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-import { publishOfferAction } from "./actions";
+import { publishOfferAction } from "@/app/(app)/seller/actions";
 
 type OfferFormProps = {
   idempotencyKey: string;

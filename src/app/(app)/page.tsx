@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { signOut } from "./actions";
+import { signOut } from "@/app/(app)/actions";
 
 const dashboardCopy = {
   seller: {
