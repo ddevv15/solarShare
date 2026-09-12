@@ -9,7 +9,7 @@ const { getCurrentViewerState, redirect, usePathname } = vi.hoisted(() => ({
 
 vi.mock("@/app/_lib/current-viewer", () => ({ getCurrentViewerState }));
 vi.mock("@/app/(app)/actions", () => ({
-  signOut: async () => undefined,
+  signOut: async () => ({ error: null }),
 }));
 vi.mock("next/navigation", () => ({ redirect, usePathname }));
 

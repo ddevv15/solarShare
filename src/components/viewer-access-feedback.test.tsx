@@ -8,7 +8,7 @@ describe("ViewerAccessFeedback", () => {
     const html = renderToStaticMarkup(
       <ViewerAccessFeedback
         reason="This account does not have an active community membership."
-        signOutAction={async () => undefined}
+        signOutAction={async () => ({ error: null })}
       />,
     );
 

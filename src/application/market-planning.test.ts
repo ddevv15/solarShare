@@ -109,6 +109,29 @@ describe("market planning intervals", () => {
     );
   });
 
+  it("selects open availability when a day with no open intervals is denser", async () => {
+    const closedDay = Array.from({ length: 3 }, (_, index) =>
+      interval(
+        `closed-${index}`,
+        new Date(
+          new Date("2026-09-12T18:30:00.000Z").getTime() +
+            index * 15 * 60 * 1000,
+        ).toISOString(),
+        "planned",
+      ),
+    );
+    const openDay = [interval("open", "2026-09-11T18:30:00.000Z")];
+    const repository = repositoryWithIntervals([...closedDay, ...openDay]);
+
+    const result = await listScenarioPlanningIntervals(
+      repository,
+      "community",
+      "Asia/Kolkata",
+    );
+
+    expect(result.map((item) => item.id)).toEqual(["open"]);
+  });
+
   it("uses the requested interval when it belongs to the planning day", () => {
     const intervals = [
       interval("one", "2026-09-12T18:30:00.000Z"),

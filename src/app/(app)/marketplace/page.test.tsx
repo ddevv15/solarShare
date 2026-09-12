@@ -25,7 +25,7 @@ vi.mock("@/repositories/supabase/caller", () => ({
   createMarketRepository,
 }));
 vi.mock("@/app/(app)/actions", () => ({
-  signOut: async () => undefined,
+  signOut: async () => ({ error: null }),
 }));
 vi.mock("@/app/(app)/marketplace/reservation-form", () => ({
   ReservationForm: () => <form aria-label="Reserve local solar" />,

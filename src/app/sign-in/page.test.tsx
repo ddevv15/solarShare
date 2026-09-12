@@ -8,7 +8,7 @@ const { getCurrentViewerState, redirect } = vi.hoisted(() => ({
 
 vi.mock("@/app/_lib/current-viewer", () => ({ getCurrentViewerState }));
 vi.mock("@/app/(app)/actions", () => ({
-  signOut: async () => undefined,
+  signOut: async () => ({ error: null }),
 }));
 vi.mock("@/app/sign-in/actions", () => ({
   signIn: async () => undefined,

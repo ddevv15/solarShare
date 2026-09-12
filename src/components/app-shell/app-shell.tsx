@@ -1,11 +1,12 @@
-import { LogOut, Sun } from "lucide-react";
+import { Sun } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import type { SignOutAction } from "@/app/(app)/_lib/sign-out-state";
 import type { DashboardKind } from "@/application/viewer";
 import { AppNavigation } from "@/components/app-shell/app-navigation";
+import { SignOutForm } from "@/components/app-shell/sign-out-form";
 import { StatusLabel } from "@/components/foundation/status-label";
-import { Button } from "@/components/ui/button";
 
 type AppShellProps = {
   children: ReactNode;
@@ -14,7 +15,7 @@ type AppShellProps = {
     displayName: string;
     contextLabel: string;
   };
-  signOutAction?: () => Promise<void>;
+  signOutAction?: SignOutAction;
 };
 
 function Brand() {
@@ -52,16 +53,7 @@ export function AppShell({
           <div className="flex items-center justify-between gap-3">
             <AppNavigation dashboardKind={dashboardKind} />
             {signOutAction ? (
-              <form action={signOutAction}>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Sign out"
-                >
-                  <LogOut aria-hidden="true" />
-                </Button>
-              </form>
+              <SignOutForm action={signOutAction} presentation="icon" />
             ) : null}
           </div>
         </div>
@@ -85,16 +77,7 @@ export function AppShell({
               <StatusLabel tone="success">Foundation ready</StatusLabel>
             )}
             {signOutAction ? (
-              <form action={signOutAction}>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  className="w-full justify-start"
-                >
-                  <LogOut data-icon="inline-start" aria-hidden="true" />
-                  Sign out
-                </Button>
-              </form>
+              <SignOutForm action={signOutAction} presentation="navigation" />
             ) : null}
           </div>
         </aside>

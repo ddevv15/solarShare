@@ -40,6 +40,8 @@ export async function listScenarioPlanningIntervals(
   const groups = new Map<string, MarketInterval[]>();
 
   for (const interval of intervals) {
+    if (interval.status !== "open") continue;
+
     const key = localDateKey(interval.intervalStart, timezone);
     groups.set(key, [...(groups.get(key) ?? []), interval]);
   }
@@ -49,11 +51,9 @@ export async function listScenarioPlanningIntervals(
       right.length - left.length || rightKey.localeCompare(leftKey),
   )[0]?.[1];
 
-  return (selected ?? [])
-    .filter((interval) => interval.status === "open")
-    .sort((left, right) =>
-      left.intervalStart.localeCompare(right.intervalStart),
-    );
+  return (selected ?? []).sort((left, right) =>
+    left.intervalStart.localeCompare(right.intervalStart),
+  );
 }
 
 export function selectPlanningInterval(
