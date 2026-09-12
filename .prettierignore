@@ -1,0 +1,10 @@
+.next/
+node_modules/
+coverage/
+docs/
+*.md
+*.pdf
+next-env.d.ts
+pnpm-lock.yaml
+skills-lock.json
+tsconfig.tsbuildinfo

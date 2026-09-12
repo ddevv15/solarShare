@@ -1,0 +1,8 @@
+{
+  "tool": "vitest",
+  "additionalTools": [],
+  "e2eTool": "none",
+  "testDir": "beside source",
+  "filePattern": "*.test.{ts,tsx}",
+  "packageManager": "pnpm"
+}
