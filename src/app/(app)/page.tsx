@@ -16,7 +16,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -99,13 +98,6 @@ export default async function Home() {
               asset.
             </p>
           </CardContent>
-          {copy.href ? (
-            <CardFooter>
-              <Button asChild variant="outline">
-                <Link href={copy.href}>{copy.action}</Link>
-              </Button>
-            </CardFooter>
-          ) : null}
         </Card>
 
         <Card>

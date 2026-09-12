@@ -1,30 +1,21 @@
-import { Home, LogOut, Sun, type LucideIcon } from "lucide-react";
+import { LogOut, Sun } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import type { DashboardKind } from "@/application/viewer";
+import { AppNavigation } from "@/components/app-shell/app-navigation";
 import { StatusLabel } from "@/components/foundation/status-label";
-import { cn } from "@/lib/utils";
-
-export type AppNavigationItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-};
+import { Button } from "@/components/ui/button";
 
 type AppShellProps = {
   children: ReactNode;
-  currentPath?: string;
-  navigation?: ReadonlyArray<AppNavigationItem>;
+  dashboardKind?: DashboardKind;
   user?: {
     displayName: string;
     contextLabel: string;
   };
   signOutAction?: () => Promise<void>;
 };
-
-const foundationNavigation: ReadonlyArray<AppNavigationItem> = [
-  { href: "/", label: "Overview", icon: Home },
-];
 
 function Brand() {
   return (
@@ -40,44 +31,9 @@ function Brand() {
   );
 }
 
-function Navigation({
-  currentPath,
-  items,
-}: {
-  currentPath: string;
-  items: ReadonlyArray<AppNavigationItem>;
-}) {
-  return (
-    <nav aria-label="Primary navigation">
-      <ul className="flex gap-2 lg:flex-col">
-        {items.map(({ href, icon: Icon, label }) => {
-          const isCurrent = currentPath === href;
-
-          return (
-            <li key={href}>
-              <Link
-                href={href}
-                aria-current={isCurrent ? "page" : undefined}
-                className={cn(
-                  "inline-flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isCurrent && "bg-accent text-accent-foreground",
-                )}
-              >
-                <Icon aria-hidden="true" className="size-4" />
-                {label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
-}
-
 export function AppShell({
   children,
-  currentPath = "/",
-  navigation = foundationNavigation,
+  dashboardKind,
   user,
   signOutAction,
 }: AppShellProps) {
@@ -93,7 +49,21 @@ export function AppShell({
       <header className="border-b bg-card px-4 py-3 lg:hidden">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Brand />
-          <Navigation currentPath={currentPath} items={navigation} />
+          <div className="flex items-center justify-between gap-3">
+            <AppNavigation dashboardKind={dashboardKind} />
+            {signOutAction ? (
+              <form action={signOutAction}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Sign out"
+                >
+                  <LogOut aria-hidden="true" />
+                </Button>
+              </form>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -101,7 +71,7 @@ export function AppShell({
         <aside className="hidden border-e bg-card lg:flex lg:flex-col lg:justify-between lg:p-6">
           <div className="flex flex-col gap-8">
             <Brand />
-            <Navigation currentPath={currentPath} items={navigation} />
+            <AppNavigation dashboardKind={dashboardKind} />
           </div>
           <div className="flex flex-col gap-4 border-t pt-5">
             {user ? (
@@ -116,13 +86,14 @@ export function AppShell({
             )}
             {signOutAction ? (
               <form action={signOutAction}>
-                <button
+                <Button
                   type="submit"
-                  className="inline-flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  variant="ghost"
+                  className="w-full justify-start"
                 >
-                  <LogOut aria-hidden="true" className="size-4" />
+                  <LogOut data-icon="inline-start" aria-hidden="true" />
                   Sign out
-                </button>
+                </Button>
               </form>
             ) : null}
           </div>

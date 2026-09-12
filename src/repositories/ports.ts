@@ -103,6 +103,10 @@ export interface MarketRepository {
     to: string,
     page: PageRequest,
   ): Promise<Page<MarketInterval>>;
+  getTariffForInterval(
+    communityId: string,
+    intervalStart: string,
+  ): Promise<TariffConfig | null>;
   createOffer(input: CreateOfferInput): Promise<Offer>;
   updateOffer(
     id: string,

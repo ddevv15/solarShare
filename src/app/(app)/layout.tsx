@@ -16,6 +16,7 @@ export default async function ApplicationLayout({
 
   return (
     <AppShell
+      dashboardKind={viewer.dashboardKind}
       user={{
         displayName: viewer.profile.displayName,
         contextLabel: `${viewer.membership.marketAlias} · ${viewer.community.name}`,

@@ -17,9 +17,9 @@ _These are recommendations to keep your build orderly, not requirements. You may
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data and access model | Foundation | in-progress |
 | 4 | Minimal UI foundation | Foundation | in-progress |
-| 5 | Seeded identity and community | Release 1 | in-progress |
-| 6 | Seller forecast and sharing | Release 1 | in-progress |
-| 7 | Buyer marketplace and reservation | Release 1 | planned |
+| 5 | Seeded identity and community | Release 1 | done |
+| 6 | Seller forecast and sharing | Release 1 | done |
+| 7 | Buyer marketplace and reservation | Release 1 | done |
 | 8 | Explainable pricing | Release 1 | planned |
 | 9 | Matching and allocation | Release 1 | planned |
 | 10 | Settlement and credit ledger | Release 1 | planned |
@@ -57,7 +57,7 @@ Define the minimum records and access boundaries for identities, communities, as
   - [ ] Build deterministic seed, fenced reset, local Auth activation, and fixture assertions, covers AC-9 and AC-10
   - [ ] Generate types, build repository ports and adapters, apply the migration, and add live database checks, covers AC-1, AC-2, AC-11, and AC-12
 - [ ] Verify it: `/check verify data and access model`
-- [ ] Test it: `/test data and access model`
+- [x] Test it: `/test data and access model`
 
 ### 4. Minimal UI foundation · in-progress · Alpha
 Set a deliberately plain visual baseline for navigation, forms, tables, status labels, source labels, and feedback states. Visual polish waits until the logic is proven.
@@ -67,26 +67,28 @@ Set a deliberately plain visual baseline for navigation, forms, tables, status l
 - [x] Design it (spec): `docs/specs/0003-minimal-ui-foundation/index.md`
 - [x] Build it: responsive shell, shared primitives, provider source label, and feedback states
 - [ ] Verify it: `/check verify minimal UI foundation`
-- [ ] Test it: `/test minimal UI foundation`
+- [x] Test it: `/test minimal UI foundation`
 
 ## Release 1: Complete judge demo
 
-### 5. Seeded identity and community · in-progress
+### 5. Seeded identity and community · done
 Give judges reliable seller, buyer, and operator entry points without spending the first release on public account management.
 **Done when:** each seeded role can sign in, receives the correct community access, reaches its minimal dashboard, and cannot read another household's private records.
 **Code:** `src/application/viewer.ts`, `src/app/sign-in`, `src/app/(app)`, and `src/components/app-shell`
 - [x] Build it: `/develop seeded identity and community`
 
-### 6. Seller forecast and sharing · in-progress · assumed decision (spec 0004)
+### 6. Seller forecast and sharing · done · assumed decision (spec 0004)
 Use repeatable simulated intervals to show generation, home demand, reserve, and shareable surplus. Keep provider adapters ready for keys, but do not make the demo depend on an external service.
 **Done when:** a seller can review tomorrow's labeled 15 minute estimates, approve or edit a suggested quantity, and publish an offer with a visible minimum price and source explanation.
 **Spec:** [0004](../specs/0004-forecast-visibility-rule.md) · assumed, owes ratification
-- [ ] Build it: `/develop seller forecast and sharing`
+**Code:** `src/application/seller-sharing.ts`, `src/app/(app)/seller`, and `src/components/market`
+- [x] Build it: `/develop seller forecast and sharing`
 
-### 7. Buyer marketplace and reservation · planned
+### 7. Buyer marketplace and reservation · done
 Show available local solar in a compact market view and let a seeded buyer request energy within a chosen price limit.
 **Done when:** a buyer can select an interval, review quantity, estimated cost and saving, submit a reservation, and see a clear pending or allocated state.
-- [ ] Build it: `/develop buyer marketplace and reservation`
+**Code:** `src/application/buyer-marketplace.ts`, `src/app/(app)/marketplace`, `src/domain/decimal.ts`, and `src/components/market`
+- [x] Build it: `/develop buyer marketplace and reservation`
 
 ### 8. Explainable pricing · planned · needs a decision · Beta
 Turn tariffs, local supply, demand, user limits, and the simulated import congestion signal into a bounded deterministic price with a plain explanation.

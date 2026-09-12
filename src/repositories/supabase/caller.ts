@@ -22,6 +22,7 @@ import type {
   Profile,
   Reservation,
   SettlementDetail,
+  TariffConfig,
 } from "../domain";
 import { mapDatabaseError, RepositoryError, unwrap } from "../errors";
 import {
@@ -38,6 +39,7 @@ import {
   mapReservation,
   mapSelectedReading,
   mapTariff,
+  mapTariffRow,
   balanceSchema,
 } from "../mappers";
 import type {
@@ -554,6 +556,25 @@ export function createMarketRepository(
           id: interval.id,
         }),
       );
+    },
+
+    async getTariffForInterval(
+      communityId: string,
+      intervalStart: string,
+    ): Promise<TariffConfig | null> {
+      const parsedCommunityId = uuidSchema.parse(communityId);
+      const parsedIntervalStart = timestampSchema.parse(intervalStart);
+      const result = await client
+        .from("own_tariffs")
+        .select("*")
+        .eq("community_id", parsedCommunityId)
+        .lte("effective_from", parsedIntervalStart)
+        .or(`effective_to.is.null,effective_to.gt.${parsedIntervalStart}`)
+        .order("effective_from", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (result.error) throw mapDatabaseError(result.error);
+      return result.data ? mapTariffRow(result.data) : null;
     },
 
     async createOffer(input: CreateOfferInput): Promise<Offer> {
