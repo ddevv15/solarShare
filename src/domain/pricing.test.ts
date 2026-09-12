@@ -4,6 +4,7 @@ import {
   calculateIntervalPrice,
   PRICING_ALGORITHM_VERSION,
   type PricingInput,
+  type PricingOutcome,
 } from "./pricing";
 
 /**
@@ -26,6 +27,172 @@ const seeded: PricingInput = {
 
 const priceOf = (input: PricingInput) =>
   calculateIntervalPrice(input).unitPrice;
+
+const postgresUnpricedParityVectors = [
+  {
+    name: "conflicting seller and buyer limits",
+    input: {
+      ...seeded,
+      congestionRatio: "0.900000",
+      highestSellerMinimum: "7.000000",
+      lowestBuyerMaximum: "5.000000",
+    },
+    expected: {
+      algorithmVersion: "linear-pressure-v1",
+      outcome: "no_common_limit",
+      unitPrice: null,
+      explanation: {
+        schemaVersion: "1",
+        summary:
+          "No price was created because the highest seller minimum of INR 7.000000 per kWh is above the lowest buyer maximum of INR 5.000000 per kWh. Users can revise their orders.",
+        outcome: "no_common_limit",
+        currency: "INR",
+        tariff: {
+          feedInRate: "3.500000",
+          retailRate: "8.000000",
+          midpoint: "5.750000",
+          protectedLowerBound: "3.950000",
+          protectedUpperBound: "7.550000",
+        },
+        market: {
+          supplyKwh: "0.800000",
+          demandKwh: "0.800000",
+          pressure: "0.000000",
+        },
+        congestion: {
+          ratio: "0.900000",
+          threshold: "0.500000",
+          pressure: "0.800000",
+        },
+        limits: {
+          highestSellerMinimum: "7.000000",
+          lowestBuyerMaximum: "5.000000",
+          effectiveLowerBound: "7.000000",
+          effectiveUpperBound: "5.000000",
+          bindingLimit: "none",
+        },
+        calculation: null,
+        reason: "order_limits_do_not_overlap",
+      },
+    },
+  },
+  {
+    name: "a seller limit above the effective upper limit",
+    input: {
+      ...seeded,
+      congestionRatio: "0.900000",
+      highestSellerMinimum: "7.800000",
+      lowestBuyerMaximum: null,
+    },
+    expected: {
+      algorithmVersion: "linear-pressure-v1",
+      outcome: "no_common_limit",
+      unitPrice: null,
+      explanation: {
+        schemaVersion: "1",
+        summary:
+          "No price was created because the effective lower limit of INR 7.800000 per kWh is above the effective upper limit of INR 7.550000 per kWh. Users can revise their orders.",
+        outcome: "no_common_limit",
+        currency: "INR",
+        tariff: {
+          feedInRate: "3.500000",
+          retailRate: "8.000000",
+          midpoint: "5.750000",
+          protectedLowerBound: "3.950000",
+          protectedUpperBound: "7.550000",
+        },
+        market: {
+          supplyKwh: "0.800000",
+          demandKwh: "0.800000",
+          pressure: "0.000000",
+        },
+        congestion: {
+          ratio: "0.900000",
+          threshold: "0.500000",
+          pressure: "0.800000",
+        },
+        limits: {
+          highestSellerMinimum: "7.800000",
+          lowestBuyerMaximum: null,
+          effectiveLowerBound: "7.800000",
+          effectiveUpperBound: "7.550000",
+          bindingLimit: "none",
+        },
+        calculation: null,
+        reason: "order_limits_do_not_overlap",
+      },
+    },
+  },
+  {
+    name: "an invalid tariff",
+    input: {
+      ...seeded,
+      feedInRate: "8.000000",
+      retailRate: "8.000000",
+    },
+    expected: {
+      algorithmVersion: "linear-pressure-v1",
+      outcome: "invalid_tariff",
+      unitPrice: null,
+      explanation: {
+        schemaVersion: "1",
+        summary:
+          "No price was created because the tariff configuration is invalid: tariff values are missing or outside their allowed ranges. The interval is paused for an operator to correct it.",
+        outcome: "invalid_tariff",
+        currency: "INR",
+        tariff: null,
+        market: {
+          supplyKwh: "0.800000",
+          demandKwh: "0.800000",
+          pressure: "0.000000",
+        },
+        congestion: null,
+        limits: null,
+        calculation: null,
+        reason: "tariff_values_out_of_range",
+      },
+    },
+  },
+  {
+    name: "a missing feeder input",
+    input: {
+      ...seeded,
+      congestionRatio: null,
+    },
+    expected: {
+      algorithmVersion: "linear-pressure-v1",
+      outcome: "missing_input",
+      unitPrice: null,
+      explanation: {
+        schemaVersion: "1",
+        summary:
+          "No price was created because feeder congestion data is missing.",
+        outcome: "missing_input",
+        currency: "INR",
+        tariff: {
+          feedInRate: "3.500000",
+          retailRate: "8.000000",
+          midpoint: "5.750000",
+          protectedLowerBound: "3.950000",
+          protectedUpperBound: "7.550000",
+        },
+        market: {
+          supplyKwh: "0.800000",
+          demandKwh: "0.800000",
+          pressure: "0.000000",
+        },
+        congestion: null,
+        limits: null,
+        calculation: null,
+        reason: "missing_feeder",
+      },
+    },
+  },
+] satisfies ReadonlyArray<{
+  name: string;
+  input: PricingInput;
+  expected: PricingOutcome;
+}>;
 
 describe("the seeded anchor", () => {
   // 5.75 is the midpoint of 3.5 and 8.0, and it is what the seeded offer's
@@ -63,6 +230,15 @@ describe("determinism", () => {
       "linear-pressure-v1",
     );
   });
+});
+
+describe("PostgreSQL parity", () => {
+  it.each(postgresUnpricedParityVectors)(
+    "matches the unpriced explanation for $name",
+    ({ input, expected }) => {
+      expect(calculateIntervalPrice(input)).toEqual(expected);
+    },
+  );
 });
 
 describe("pressure", () => {

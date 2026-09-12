@@ -95,16 +95,22 @@ function fixed(value: ExactRational): string {
 
 function invalidTariff(
   input: PricingInput,
-  reason: string,
+  reason: "tariff_values_out_of_range" | "tariff_protections_cross",
   tariff: TariffExplanation | null,
 ): PricingOutcome {
+  const messages = {
+    tariff_values_out_of_range:
+      "tariff values are missing or outside their allowed ranges",
+    tariff_protections_cross: "the seller and buyer tariff protections cross",
+  } satisfies Record<typeof reason, string>;
+
   return {
     algorithmVersion: PRICING_ALGORITHM_VERSION,
     outcome: "invalid_tariff",
     unitPrice: null,
     explanation: {
       schemaVersion: PRICING_EXPLANATION_SCHEMA_VERSION,
-      summary: `No price was created because the tariff configuration is invalid: ${reason}. The interval is paused for an operator to correct it.`,
+      summary: `No price was created because the tariff configuration is invalid: ${messages[reason]}. The interval is paused for an operator to correct it.`,
       outcome: "invalid_tariff",
       currency: input.currency,
       tariff,
@@ -211,6 +217,10 @@ export function calculateIntervalPrice(input: PricingInput): PricingOutcome {
   if (congestion.compare(ONE) > 0) {
     throw new Error("Congestion ratio must be between zero and one.");
   }
+  const congestionPressure =
+    congestion.compare(HALF) <= 0
+      ? ZERO
+      : congestion.subtract(HALF).divide(HALF);
 
   const sellerMinimum = input.highestSellerMinimum
     ? ExactRational.fromDecimal(input.highestSellerMinimum)
@@ -226,15 +236,17 @@ export function calculateIntervalPrice(input: PricingInput): PricingOutcome {
     : tariffUpper;
 
   if (lowerBound.compare(upperBound) > 0) {
-    const highest = sellerMinimum ? fixed(sellerMinimum) : fixed(tariffLower);
-    const lowest = buyerMaximum ? fixed(buyerMaximum) : fixed(tariffUpper);
+    const summary =
+      sellerMinimum && buyerMaximum
+        ? `No price was created because the highest seller minimum of ${input.currency} ${fixed(sellerMinimum)} per kWh is above the lowest buyer maximum of ${input.currency} ${fixed(buyerMaximum)} per kWh. Users can revise their orders.`
+        : `No price was created because the effective lower limit of ${input.currency} ${fixed(lowerBound)} per kWh is above the effective upper limit of ${input.currency} ${fixed(upperBound)} per kWh. Users can revise their orders.`;
     return {
       algorithmVersion: PRICING_ALGORITHM_VERSION,
       outcome: "no_common_limit",
       unitPrice: null,
       explanation: {
         schemaVersion: PRICING_EXPLANATION_SCHEMA_VERSION,
-        summary: `No price was created because the highest seller minimum of ${input.currency} ${highest} per kWh is above the lowest buyer maximum of ${input.currency} ${lowest} per kWh. Users can revise their orders.`,
+        summary,
         outcome: "no_common_limit",
         currency: input.currency,
         tariff,
@@ -246,7 +258,7 @@ export function calculateIntervalPrice(input: PricingInput): PricingOutcome {
         congestion: {
           ratio: fixed(congestion),
           threshold: "0.500000",
-          pressure: "0.000000",
+          pressure: fixed(congestionPressure),
         },
         limits: {
           highestSellerMinimum: sellerMinimum ? fixed(sellerMinimum) : null,
@@ -262,10 +274,6 @@ export function calculateIntervalPrice(input: PricingInput): PricingOutcome {
   }
 
   const marketPressure = demand.subtract(supply).divide(demand.add(supply));
-  const congestionPressure =
-    congestion.compare(HALF) <= 0
-      ? ZERO
-      : congestion.subtract(HALF).divide(HALF);
   const combinedPressure = marketPressure
     .multiply(MARKET_WEIGHT)
     .add(congestionPressure.multiply(CONGESTION_WEIGHT))
