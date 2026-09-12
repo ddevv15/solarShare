@@ -1,4 +1,4 @@
-import { Home, Sun, type LucideIcon } from "lucide-react";
+import { Home, LogOut, Sun, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -15,6 +15,11 @@ type AppShellProps = {
   children: ReactNode;
   currentPath?: string;
   navigation?: ReadonlyArray<AppNavigationItem>;
+  user?: {
+    displayName: string;
+    contextLabel: string;
+  };
+  signOutAction?: () => Promise<void>;
 };
 
 const foundationNavigation: ReadonlyArray<AppNavigationItem> = [
@@ -73,6 +78,8 @@ export function AppShell({
   children,
   currentPath = "/",
   navigation = foundationNavigation,
+  user,
+  signOutAction,
 }: AppShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -96,11 +103,28 @@ export function AppShell({
             <Brand />
             <Navigation currentPath={currentPath} items={navigation} />
           </div>
-          <div className="flex flex-col gap-2 border-t pt-5">
-            <StatusLabel tone="success">Foundation ready</StatusLabel>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Demo workspace
-            </p>
+          <div className="flex flex-col gap-4 border-t pt-5">
+            {user ? (
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold">{user.displayName}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {user.contextLabel}
+                </p>
+              </div>
+            ) : (
+              <StatusLabel tone="success">Foundation ready</StatusLabel>
+            )}
+            {signOutAction ? (
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <LogOut aria-hidden="true" className="size-4" />
+                  Sign out
+                </button>
+              </form>
+            ) : null}
           </div>
         </aside>
 
