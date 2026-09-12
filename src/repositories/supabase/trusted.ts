@@ -2,6 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@supabase/server/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/types/database.generated";
 import { z } from "zod";
 
 import { getWorkerConfig } from "@/lib/config/worker";
@@ -37,10 +39,7 @@ const completionSchema = z.object({
   deliveredAt: timestampSchema.nullable(),
 });
 
-// Typed as a plain client until `pnpm db:types` produces a Database type; with
-// no generated schema the admin client resolves every rpc argument to
-// `undefined`. Swap in the generic once the types exist.
-function createSecretClient(): SupabaseClient {
+function createSecretClient(): SupabaseClient<Database> {
   const config = getWorkerConfig();
   if (!config.SUPABASE_URL || !config.SUPABASE_SECRET_KEY) {
     throw new RepositoryError(
@@ -54,11 +53,11 @@ function createSecretClient(): SupabaseClient {
       url: config.SUPABASE_URL,
       secretKeys: { default: config.SUPABASE_SECRET_KEY },
     },
-  }) as unknown as SupabaseClient;
+  });
 }
 
 export function createTrustedOperationsRepository(
-  client: SupabaseClient = createSecretClient(),
+  client: SupabaseClient<Database> = createSecretClient(),
 ): TrustedOperationsRepository {
   return {
     async claimOutbox(
@@ -83,7 +82,7 @@ export function createTrustedOperationsRepository(
         p_event_id: input.eventId,
         p_claim_token: input.claimToken,
         p_delivered: input.delivered,
-        p_error_code: input.errorCode ?? null,
+        p_error_code: input.errorCode ?? undefined,
       });
       return completionSchema.parse(unwrap(result));
     },
@@ -106,7 +105,7 @@ export function createTrustedOperationsRepository(
         p_community_id: input.communityId,
         p_actor_user_id: input.actorUserId,
         p_idempotency_key: input.idempotencyKey,
-        p_anchor_date: input.anchorDate ?? null,
+        p_anchor_date: input.anchorDate ?? undefined,
       });
       return resetDemoResultSchema.parse(unwrap(result));
     },
