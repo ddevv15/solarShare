@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CalendarClock, CircleHelp } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import {
   forecastMetrics,
   loadSellerSharingPlan,
@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/foundation/page-header";
 import { SourceLabel } from "@/components/foundation/source-label";
 import { StatusLabel } from "@/components/foundation/status-label";
 import { IntervalPicker } from "@/components/market/interval-picker";
+import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 import {
   Card,
   CardContent,
@@ -31,6 +32,7 @@ import {
 } from "@/repositories/supabase/caller";
 
 import { OfferForm } from "./offer-form";
+import { signOut } from "../actions";
 
 export const metadata: Metadata = {
   title: "Seller forecast | SolarShare",
@@ -79,8 +81,17 @@ type SellerPageProps = {
 };
 
 export default async function SellerPage({ searchParams }: SellerPageProps) {
-  const viewer = await getCurrentViewer();
-  if (!viewer) redirect("/sign-in");
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status === "anonymous") redirect("/sign-in");
+  if (viewerState.status === "unresolved") {
+    return (
+      <ViewerAccessFeedback
+        reason={viewerState.reason}
+        signOutAction={signOut}
+      />
+    );
+  }
+  const { viewer } = viewerState;
 
   const query = await searchParams;
   const requestedIntervalId =
@@ -118,8 +129,8 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
                 <div className="flex flex-col gap-1">
                   <CardTitle id="interval-title">Planning interval</CardTitle>
                   <CardDescription>
-                    All {plan.intervals.length} seeded intervals remain
-                    available so the demo does not depend on the current hour.
+                    Only seeded intervals that are open for new offers are
+                    available here.
                   </CardDescription>
                 </div>
               </div>
@@ -236,6 +247,7 @@ export default async function SellerPage({ searchParams }: SellerPageProps) {
           {plan.forecasts.surplus && plan.tariff ? (
             <OfferForm
               key={plan.selectedInterval.id}
+              idempotencyKey={crypto.randomUUID()}
               intervalId={plan.selectedInterval.id}
               suggestedQuantityKwh={normalizeDecimalString(
                 plan.forecasts.surplus.valueKwh,

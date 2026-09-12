@@ -12,6 +12,7 @@ const read = (file: string) =>
 
 const foundation = read("202609120001_data_access_model.sql");
 const repair = read("202609120002_auth_repair_and_default_privileges.sql");
+const atomicOrders = read("202609120003_atomic_order_submission.sql");
 const seed = readFileSync(
   new URL("../../supabase/seed.sql", import.meta.url),
   "utf8",
@@ -104,5 +105,47 @@ describe("seeded auth identities", () => {
     expect(repair).toContain(
       "update auth.users set %1$I = '''' where %1$I is null",
     );
+  });
+});
+
+describe("atomic order submission", () => {
+  it("commits each order transition and idempotency result in one transaction", () => {
+    expect(atomicOrders).toMatch(/^begin;/);
+    expect(atomicOrders).toMatch(/commit;\s*$/);
+    expect(atomicOrders).toContain("create function public.submit_offer(");
+    expect(atomicOrders).toContain(
+      "update public.offers set status = 'open' where id = offer_id;",
+    );
+    expect(atomicOrders).toContain(
+      "update public.reservations set status = 'active' where id = reservation_id;",
+    );
+    expect(
+      atomicOrders.match(/insert into public\.idempotency_records\(/g),
+    ).toHaveLength(2);
+  });
+
+  it("returns the stored row for a matching retry and rejects changed inputs", () => {
+    expect(atomicOrders).toContain(
+      "operation_name constant text := 'offer.submit.v1'",
+    );
+    expect(atomicOrders).toContain(
+      "operation_name constant text := 'reservation.submit.v1'",
+    );
+    expect(
+      atomicOrders.match(/prior\.request_sha256 <> request_hash/g),
+    ).toHaveLength(2);
+    expect(atomicOrders).toContain(
+      "return (prior.result ->> 'offerId')::uuid;",
+    );
+    expect(atomicOrders).toContain(
+      "return (prior.result ->> 'reservationId')::uuid;",
+    );
+  });
+
+  it("serializes submissions and exposes the functions only to signed-in callers", () => {
+    expect(atomicOrders.match(/pg_advisory_xact_lock/g)).toHaveLength(2);
+    expect(atomicOrders.match(/authentication is required/g)).toHaveLength(2);
+    expect(atomicOrders.match(/to authenticated;/g)).toHaveLength(2);
+    expect(atomicOrders).not.toMatch(/to anon;/);
   });
 });

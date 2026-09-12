@@ -2605,6 +2605,31 @@ export type Database = {
           value_kwh: string
         }[]
       }
+      submit_offer: {
+        Args: {
+          p_auto_adjust: boolean
+          p_community_id: string
+          p_forecast_id: string
+          p_idempotency_key: string
+          p_is_manual_quantity: boolean
+          p_market_interval_id: string
+          p_minimum_price: number
+          p_quantity_kwh: number
+          p_solar_asset_id: string
+        }
+        Returns: string
+      }
+      submit_reservation: {
+        Args: {
+          p_auto_adjust: boolean
+          p_community_id: string
+          p_idempotency_key: string
+          p_market_interval_id: string
+          p_maximum_price: number
+          p_quantity_kwh: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

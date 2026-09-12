@@ -142,6 +142,7 @@ export async function publishSellerOffer(
     intervalId: string;
     quantityKwh: string;
     minimumPrice: string;
+    idempotencyKey: string;
   },
 ): Promise<Offer> {
   const plan = await loadSellerSharingPlan(
@@ -165,7 +166,7 @@ export async function publishSellerOffer(
   }
 
   const quantityKwh = normalizeDecimalString(input.quantityKwh);
-  const created = await repositories.market.createOffer({
+  return repositories.market.submitOffer({
     communityId: viewer.community.id,
     intervalId: interval.id,
     solarAssetId: plan.solarAssetId,
@@ -175,9 +176,6 @@ export async function publishSellerOffer(
     isManualQuantity:
       compareDecimalStrings(quantityKwh, surplus.valueKwh) !== 0,
     autoAdjust: false,
-  });
-
-  return repositories.market.updateOffer(created.id, Number(created.version), {
-    targetStatus: "open",
+    idempotencyKey: input.idempotencyKey,
   });
 }

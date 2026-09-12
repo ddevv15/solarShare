@@ -50,6 +50,8 @@ import type {
   CreateReservationInput,
   SelectForecastInput,
   SelectReadingInput,
+  SubmitOfferInput,
+  SubmitReservationInput,
   TransitionIntervalInput,
   UpdateEnergyAssetInput,
   UpdateMembershipInput,
@@ -57,7 +59,13 @@ import type {
   UpdateProfileInput,
   UpdateReservationInput,
 } from "../schemas";
-import { decimal6Schema, timestampSchema, uuidSchema } from "../schemas";
+import {
+  decimal6Schema,
+  submitOfferInputSchema,
+  submitReservationInputSchema,
+  timestampSchema,
+  uuidSchema,
+} from "../schemas";
 import type {
   AssetRepository,
   CommunityRepository,
@@ -577,6 +585,26 @@ export function createMarketRepository(
       return result.data ? mapTariffRow(result.data) : null;
     },
 
+    async submitOffer(input: SubmitOfferInput): Promise<Offer> {
+      const parsed = submitOfferInputSchema.parse(input);
+      const result = await client.rpc("submit_offer", {
+        p_community_id: parsed.communityId,
+        p_market_interval_id: parsed.intervalId,
+        p_solar_asset_id: parsed.solarAssetId,
+        p_forecast_id: parsed.forecastId ?? null,
+        p_quantity_kwh: parsed.quantityKwh,
+        p_minimum_price: parsed.minimumPrice ?? null,
+        p_is_manual_quantity: parsed.isManualQuantity,
+        p_auto_adjust: parsed.autoAdjust,
+        p_idempotency_key: parsed.idempotencyKey,
+      });
+      if (result.error) throw mapDatabaseError(result.error);
+
+      // The function creates and opens the offer in one transaction. If this
+      // response or the refetch is lost, the same key returns this same id.
+      return refetchOffer(uuidSchema.parse(result.data));
+    },
+
     async createOffer(input: CreateOfferInput): Promise<Offer> {
       const id = crypto.randomUUID();
       const written = await client
@@ -627,6 +655,25 @@ export function createMarketRepository(
         );
       }
       return refetchOffer(id);
+    },
+
+    async submitReservation(
+      input: SubmitReservationInput,
+    ): Promise<Reservation> {
+      const parsed = submitReservationInputSchema.parse(input);
+      const result = await client.rpc("submit_reservation", {
+        p_community_id: parsed.communityId,
+        p_market_interval_id: parsed.intervalId,
+        p_quantity_kwh: parsed.quantityKwh,
+        p_maximum_price: parsed.maximumPrice ?? null,
+        p_auto_adjust: parsed.autoAdjust,
+        p_idempotency_key: parsed.idempotencyKey,
+      });
+      if (result.error) throw mapDatabaseError(result.error);
+
+      // The pending row and active transition commit together. A retry uses
+      // the stored result instead of creating a second reservation.
+      return refetchReservation(uuidSchema.parse(result.data));
     },
 
     async createReservation(

@@ -6,6 +6,8 @@ import {
   latitudeSchema,
   longitudeSchema,
   signedDecimal2Schema,
+  submitOfferInputSchema,
+  submitReservationInputSchema,
   updateProfileInputSchema,
 } from "./schemas";
 
@@ -75,5 +77,40 @@ describe("coordinates", () => {
     expect(
       updateProfileInputSchema.safeParse({ displayName: "Asha" }).success,
     ).toBe(true);
+  });
+});
+
+describe("atomic order submission inputs", () => {
+  const ids = {
+    communityId: "10000000-0000-4000-8000-000000000001",
+    intervalId: "10000000-0000-4000-8000-000000000002",
+    solarAssetId: "10000000-0000-4000-8000-000000000003",
+    idempotencyKey: "10000000-0000-4000-8000-000000000004",
+  };
+
+  it("keeps offer quantities and prices as exact decimal strings", () => {
+    const result = submitOfferInputSchema.parse({
+      ...ids,
+      quantityKwh: "9999999999.123456",
+      minimumPrice: "8.765432",
+      isManualQuantity: false,
+      autoAdjust: false,
+    });
+
+    expect(result.quantityKwh).toBe("9999999999.123456");
+    expect(result.minimumPrice).toBe("8.765432");
+  });
+
+  it("requires a UUID idempotency key for reservation retries", () => {
+    const result = submitReservationInputSchema.safeParse({
+      communityId: ids.communityId,
+      intervalId: ids.intervalId,
+      quantityKwh: "0.200000",
+      maximumPrice: "6.500000",
+      autoAdjust: false,
+      idempotencyKey: "retry-me",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

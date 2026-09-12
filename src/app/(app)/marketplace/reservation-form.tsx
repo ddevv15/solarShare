@@ -28,6 +28,7 @@ import { estimateReservation } from "@/domain/decimal";
 import { reserveEnergyAction } from "./actions";
 
 type ReservationFormProps = {
+  idempotencyKey: string;
   intervalId: string;
   initialQuantityKwh: string;
   initialMaximumPrice: string;
@@ -47,6 +48,7 @@ function estimate(
 }
 
 export function ReservationForm({
+  idempotencyKey,
   intervalId,
   initialQuantityKwh,
   initialMaximumPrice,
@@ -76,6 +78,7 @@ export function ReservationForm({
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-6">
+          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="intervalId" value={intervalId} />
           {state.status === "success" ? (
             <FeedbackState

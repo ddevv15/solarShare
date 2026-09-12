@@ -23,15 +23,23 @@ export async function listScenarioPlanningIntervals(
   communityId: string,
   timezone: string,
 ): Promise<MarketInterval[]> {
-  const page = await repository.listIntervals(
-    communityId,
-    scenarioWindow.from,
-    scenarioWindow.to,
-    { limit: 100 },
-  );
+  const intervals: MarketInterval[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await repository.listIntervals(
+      communityId,
+      scenarioWindow.from,
+      scenarioWindow.to,
+      { limit: 100, ...(cursor ? { cursor } : {}) },
+    );
+    intervals.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+
   const groups = new Map<string, MarketInterval[]>();
 
-  for (const interval of page.items) {
+  for (const interval of intervals) {
     const key = localDateKey(interval.intervalStart, timezone);
     groups.set(key, [...(groups.get(key) ?? []), interval]);
   }
@@ -41,22 +49,24 @@ export async function listScenarioPlanningIntervals(
       right.length - left.length || rightKey.localeCompare(leftKey),
   )[0]?.[1];
 
-  return (selected ?? []).sort((left, right) =>
-    left.intervalStart.localeCompare(right.intervalStart),
-  );
+  return (selected ?? [])
+    .filter((interval) => interval.status === "open")
+    .sort((left, right) =>
+      left.intervalStart.localeCompare(right.intervalStart),
+    );
 }
 
 export function selectPlanningInterval(
   intervals: MarketInterval[],
   requestedId?: string,
 ): MarketInterval | null {
+  const open = intervals.filter((interval) => interval.status === "open");
   const requested = requestedId
-    ? intervals.find((interval) => interval.id === requestedId)
+    ? open.find((interval) => interval.id === requestedId)
     : undefined;
   if (requested) return requested;
 
-  const open = intervals.filter((interval) => interval.status === "open");
-  return open[Math.floor(open.length / 2)] ?? intervals[0] ?? null;
+  return open[Math.floor(open.length / 2)] ?? null;
 }
 
 export function formatIntervalLabel(

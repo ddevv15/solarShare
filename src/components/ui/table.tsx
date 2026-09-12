@@ -2,9 +2,19 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+type TableProps = React.ComponentProps<"table"> & {
+  scrollRegionLabel?: string;
+};
+
+function Table({ className, scrollRegionLabel, ...props }: TableProps) {
   return (
-    <div data-slot="table-container" className="w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className="w-full overflow-x-auto"
+      aria-label={scrollRegionLabel}
+      role={scrollRegionLabel ? "region" : undefined}
+      tabIndex={scrollRegionLabel ? 0 : undefined}
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

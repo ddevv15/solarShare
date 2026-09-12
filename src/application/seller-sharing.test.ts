@@ -121,8 +121,10 @@ function repositories() {
   const market = {
     listIntervals: vi.fn().mockResolvedValue({ items: [selectedInterval] }),
     getTariffForInterval: vi.fn().mockResolvedValue(tariff),
+    submitOffer: vi.fn(),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
+    submitReservation: vi.fn(),
     createReservation: vi.fn(),
     updateReservation: vi.fn(),
     getAllocation: vi.fn(),
@@ -177,8 +179,7 @@ describe("seller sharing", () => {
       createdAt: "2026-09-12T12:30:00.000Z",
       updatedAt: "2026-09-12T12:30:00.000Z",
     } satisfies Offer;
-    dependencies.market.createOffer.mockResolvedValue(draft);
-    dependencies.market.updateOffer.mockResolvedValue({
+    dependencies.market.submitOffer.mockResolvedValue({
       ...draft,
       status: "open",
       version: "2",
@@ -188,9 +189,10 @@ describe("seller sharing", () => {
       intervalId: "interval",
       quantityKwh: "0.580000",
       minimumPrice: "3.500000",
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
     });
 
-    expect(dependencies.market.createOffer).toHaveBeenCalledWith({
+    expect(dependencies.market.submitOffer).toHaveBeenCalledWith({
       communityId: "community",
       intervalId: "interval",
       solarAssetId: "solar",
@@ -199,10 +201,11 @@ describe("seller sharing", () => {
       minimumPrice: "3.5",
       isManualQuantity: false,
       autoAdjust: false,
+      idempotencyKey: "10000000-0000-4000-8000-000000000001",
     });
-    expect(dependencies.market.updateOffer).toHaveBeenCalledWith("offer", 1, {
-      targetStatus: "open",
-    });
+    expect(dependencies.market.submitOffer).toHaveBeenCalledTimes(1);
+    expect(dependencies.market.createOffer).not.toHaveBeenCalled();
+    expect(dependencies.market.updateOffer).not.toHaveBeenCalled();
     expect(result.status).toBe("open");
   });
 
@@ -226,8 +229,7 @@ describe("seller sharing", () => {
       createdAt: "2026-09-12T12:30:00.000Z",
       updatedAt: "2026-09-12T12:30:00.000Z",
     } satisfies Offer;
-    dependencies.market.createOffer.mockResolvedValue(draft);
-    dependencies.market.updateOffer.mockResolvedValue({
+    dependencies.market.submitOffer.mockResolvedValue({
       ...draft,
       status: "open",
     });
@@ -236,9 +238,10 @@ describe("seller sharing", () => {
       intervalId: "interval",
       quantityKwh: "0.4",
       minimumPrice: "4",
+      idempotencyKey: "10000000-0000-4000-8000-000000000002",
     });
 
-    expect(dependencies.market.createOffer).toHaveBeenCalledWith(
+    expect(dependencies.market.submitOffer).toHaveBeenCalledWith(
       expect.objectContaining({ isManualQuantity: true }),
     );
   });
@@ -253,5 +256,25 @@ describe("seller sharing", () => {
       ),
     ).rejects.toThrow("seller demo account");
     expect(dependencies.market.listIntervals).not.toHaveBeenCalled();
+  });
+
+  it("rejects a planned interval before reading forecasts or submitting", async () => {
+    const dependencies = repositories();
+    dependencies.market.listIntervals.mockResolvedValue({
+      items: [{ ...selectedInterval, status: "planned" }],
+    });
+
+    await expect(
+      publishSellerOffer(viewer, dependencies, {
+        intervalId: "interval",
+        quantityKwh: "0.580000",
+        minimumPrice: "3.500000",
+        idempotencyKey: "10000000-0000-4000-8000-000000000005",
+      }),
+    ).rejects.toThrow("not available");
+    expect(
+      dependencies.energyData.selectCurrentForecast,
+    ).not.toHaveBeenCalled();
+    expect(dependencies.market.submitOffer).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { MarketActionState } from "@/app/(app)/_lib/market-action-state";
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import { submitBuyerReservation } from "@/application/buyer-marketplace";
 import { ViewerAccessError } from "@/application/viewer";
 import { compareDecimalStrings } from "@/domain/decimal";
@@ -22,6 +22,7 @@ const positiveDecimal = decimal6Schema.refine(
 );
 
 const reservationActionSchema = z.object({
+  idempotencyKey: uuidSchema,
   intervalId: uuidSchema,
   quantityKwh: positiveDecimal,
   maximumPrice: decimal6Schema,
@@ -32,6 +33,7 @@ export async function reserveEnergyAction(
   formData: FormData,
 ): Promise<MarketActionState> {
   const parsed = reservationActionSchema.safeParse({
+    idempotencyKey: formData.get("idempotencyKey"),
     intervalId: formData.get("intervalId"),
     quantityKwh: formData.get("quantityKwh"),
     maximumPrice: formData.get("maximumPrice"),
@@ -48,13 +50,14 @@ export async function reserveEnergyAction(
     };
   }
 
-  const viewer = await getCurrentViewer();
-  if (!viewer) {
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status !== "resolved") {
     return {
       status: "failure",
       message: "Your session ended. Sign in again before reserving.",
     };
   }
+  const { viewer } = viewerState;
 
   const client = await createClient();
   try {

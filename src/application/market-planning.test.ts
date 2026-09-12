@@ -27,8 +27,10 @@ function repositoryWithIntervals(items: MarketInterval[]): MarketRepository {
   return {
     listIntervals: vi.fn().mockResolvedValue({ items }),
     getTariffForInterval: vi.fn(),
+    submitOffer: vi.fn(),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
+    submitReservation: vi.fn(),
     createReservation: vi.fn(),
     updateReservation: vi.fn(),
     getAllocation: vi.fn(),
@@ -62,6 +64,51 @@ describe("market planning intervals", () => {
     );
   });
 
+  it("loads every interval page before choosing the seeded planning day", async () => {
+    const historical = Array.from({ length: 96 }, (_, index) =>
+      interval(
+        `history-${index}`,
+        new Date(
+          new Date("2026-09-11T18:30:00.000Z").getTime() +
+            index * 15 * 60 * 1000,
+        ).toISOString(),
+        "planned",
+      ),
+    );
+    const anchor = Array.from({ length: 96 }, (_, index) =>
+      interval(
+        `anchor-${index}`,
+        new Date(
+          new Date("2026-09-12T18:30:00.000Z").getTime() +
+            index * 15 * 60 * 1000,
+        ).toISOString(),
+        index === 95 ? "open" : "planned",
+      ),
+    );
+    const repository = repositoryWithIntervals([]);
+    vi.mocked(repository.listIntervals)
+      .mockResolvedValueOnce({
+        items: [...historical, ...anchor.slice(0, 4)],
+        nextCursor: "next-page",
+      })
+      .mockResolvedValueOnce({ items: anchor.slice(4) });
+
+    const result = await listScenarioPlanningIntervals(
+      repository,
+      "community",
+      "Asia/Kolkata",
+    );
+
+    expect(result.map((item) => item.id)).toEqual(["anchor-95"]);
+    expect(repository.listIntervals).toHaveBeenNthCalledWith(
+      2,
+      "community",
+      "2000-01-01T00:00:00Z",
+      "2100-01-01T00:00:00Z",
+      { limit: 100, cursor: "next-page" },
+    );
+  });
+
   it("uses the requested interval when it belongs to the planning day", () => {
     const intervals = [
       interval("one", "2026-09-12T18:30:00.000Z"),
@@ -69,6 +116,23 @@ describe("market planning intervals", () => {
     ];
 
     expect(selectPlanningInterval(intervals, "one")?.id).toBe("one");
+  });
+
+  it("does not return an explicitly requested planned interval", () => {
+    const intervals = [
+      interval("planned", "2026-09-12T18:30:00.000Z", "planned"),
+      interval("open", "2026-09-12T18:45:00.000Z"),
+    ];
+
+    expect(selectPlanningInterval(intervals, "planned")?.id).toBe("open");
+  });
+
+  it("returns null when the planning day has no open interval", () => {
+    const intervals = [
+      interval("planned", "2026-09-12T18:30:00.000Z", "planned"),
+    ];
+
+    expect(selectPlanningInterval(intervals, "planned")).toBeNull();
   });
 
   it("defaults to the midpoint open interval", () => {

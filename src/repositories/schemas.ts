@@ -92,6 +92,9 @@ export const createOfferInputSchema = z.object({
   isManualQuantity: z.boolean(),
   autoAdjust: z.boolean(),
 });
+export const submitOfferInputSchema = createOfferInputSchema.extend({
+  idempotencyKey: uuidSchema,
+});
 export const updateOfferInputSchema = z
   .object({
     quantityKwh: decimal6Schema.optional(),
@@ -112,6 +115,11 @@ export const createReservationInputSchema = z.object({
   maximumPrice: decimal6Schema.optional(),
   autoAdjust: z.boolean(),
 });
+export const submitReservationInputSchema = createReservationInputSchema.extend(
+  {
+    idempotencyKey: uuidSchema,
+  },
+);
 export const updateReservationInputSchema = z
   .object({
     quantityKwh: decimal6Schema.optional(),
@@ -208,9 +216,13 @@ export type UpdateEnergyAssetInput = z.infer<
 export type SelectReadingInput = z.infer<typeof selectReadingInputSchema>;
 export type SelectForecastInput = z.infer<typeof selectForecastInputSchema>;
 export type CreateOfferInput = z.infer<typeof createOfferInputSchema>;
+export type SubmitOfferInput = z.infer<typeof submitOfferInputSchema>;
 export type UpdateOfferInput = z.infer<typeof updateOfferInputSchema>;
 export type CreateReservationInput = z.infer<
   typeof createReservationInputSchema
+>;
+export type SubmitReservationInput = z.infer<
+  typeof submitReservationInputSchema
 >;
 export type UpdateReservationInput = z.infer<
   typeof updateReservationInputSchema

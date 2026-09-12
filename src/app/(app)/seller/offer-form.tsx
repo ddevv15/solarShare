@@ -27,12 +27,14 @@ import { Input } from "@/components/ui/input";
 import { publishOfferAction } from "./actions";
 
 type OfferFormProps = {
+  idempotencyKey: string;
   intervalId: string;
   suggestedQuantityKwh: string;
   minimumPrice: string;
 };
 
 export function OfferForm({
+  idempotencyKey,
   intervalId,
   suggestedQuantityKwh,
   minimumPrice,
@@ -58,6 +60,7 @@ export function OfferForm({
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-6">
+          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="intervalId" value={intervalId} />
           {state.status === "success" ? (
             <FeedbackState

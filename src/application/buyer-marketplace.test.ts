@@ -107,8 +107,10 @@ function repositories() {
   const market = {
     listIntervals: vi.fn().mockResolvedValue({ items: [selectedInterval] }),
     getTariffForInterval: vi.fn().mockResolvedValue(tariff),
+    submitOffer: vi.fn(),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
+    submitReservation: vi.fn(),
     createReservation: vi.fn(),
     updateReservation: vi.fn(),
     getAllocation: vi.fn(),
@@ -151,8 +153,7 @@ describe("buyer marketplace", () => {
       createdAt: "2026-09-12T12:30:00.000Z",
       updatedAt: "2026-09-12T12:30:00.000Z",
     } satisfies Reservation;
-    dependencies.market.createReservation.mockResolvedValue(pending);
-    dependencies.market.updateReservation.mockResolvedValue({
+    dependencies.market.submitReservation.mockResolvedValue({
       ...pending,
       status: "active",
       version: "2",
@@ -162,20 +163,20 @@ describe("buyer marketplace", () => {
       intervalId: "interval",
       quantityKwh: "0.200000",
       maximumPrice: "6.500000",
+      idempotencyKey: "10000000-0000-4000-8000-000000000003",
     });
 
-    expect(dependencies.market.createReservation).toHaveBeenCalledWith({
+    expect(dependencies.market.submitReservation).toHaveBeenCalledWith({
       communityId: "community",
       intervalId: "interval",
       quantityKwh: "0.2",
       maximumPrice: "6.5",
       autoAdjust: false,
+      idempotencyKey: "10000000-0000-4000-8000-000000000003",
     });
-    expect(dependencies.market.updateReservation).toHaveBeenCalledWith(
-      "reservation",
-      1,
-      { targetStatus: "active" },
-    );
+    expect(dependencies.market.submitReservation).toHaveBeenCalledTimes(1);
+    expect(dependencies.market.createReservation).not.toHaveBeenCalled();
+    expect(dependencies.market.updateReservation).not.toHaveBeenCalled();
     expect(result.status).toBe("active");
   });
 
@@ -187,9 +188,10 @@ describe("buyer marketplace", () => {
         intervalId: "tampered",
         quantityKwh: "0.2",
         maximumPrice: "6.5",
+        idempotencyKey: "10000000-0000-4000-8000-000000000004",
       }),
     ).rejects.toThrow("not available");
-    expect(dependencies.market.createReservation).not.toHaveBeenCalled();
+    expect(dependencies.market.submitReservation).not.toHaveBeenCalled();
   });
 
   it("rejects a seller before reading marketplace data", async () => {
@@ -202,5 +204,23 @@ describe("buyer marketplace", () => {
       ),
     ).rejects.toThrow("buyer demo account");
     expect(dependencies.market.listIntervals).not.toHaveBeenCalled();
+  });
+
+  it("rejects a planned interval before reading listings or submitting", async () => {
+    const dependencies = repositories();
+    dependencies.market.listIntervals.mockResolvedValue({
+      items: [{ ...selectedInterval, status: "planned" }],
+    });
+
+    await expect(
+      submitBuyerReservation(viewer, dependencies, {
+        intervalId: "interval",
+        quantityKwh: "0.2",
+        maximumPrice: "6.5",
+        idempotencyKey: "10000000-0000-4000-8000-000000000006",
+      }),
+    ).rejects.toThrow("not available");
+    expect(dependencies.community.listMarketplace).not.toHaveBeenCalled();
+    expect(dependencies.market.submitReservation).not.toHaveBeenCalled();
   });
 });

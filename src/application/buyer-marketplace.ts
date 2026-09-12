@@ -78,6 +78,7 @@ export async function submitBuyerReservation(
     intervalId: string;
     quantityKwh: string;
     maximumPrice: string;
+    idempotencyKey: string;
   },
 ): Promise<Reservation> {
   const marketplace = await loadBuyerMarketplace(
@@ -97,17 +98,12 @@ export async function submitBuyerReservation(
     );
   }
 
-  const created = await repositories.market.createReservation({
+  return repositories.market.submitReservation({
     communityId: viewer.community.id,
     intervalId: interval.id,
     quantityKwh: normalizeDecimalString(input.quantityKwh),
     maximumPrice: normalizeDecimalString(input.maximumPrice),
     autoAdjust: false,
+    idempotencyKey: input.idempotencyKey,
   });
-
-  return repositories.market.updateReservation(
-    created.id,
-    Number(created.version),
-    { targetStatus: "active" },
-  );
 }

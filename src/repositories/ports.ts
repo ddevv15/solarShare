@@ -38,6 +38,8 @@ import type {
   ResetDemoInput,
   SelectForecastInput,
   SelectReadingInput,
+  SubmitOfferInput,
+  SubmitReservationInput,
   TransitionIntervalInput,
   UpdateEnergyAssetInput,
   UpdateMembershipInput,
@@ -107,12 +109,14 @@ export interface MarketRepository {
     communityId: string,
     intervalStart: string,
   ): Promise<TariffConfig | null>;
+  submitOffer(input: SubmitOfferInput): Promise<Offer>;
   createOffer(input: CreateOfferInput): Promise<Offer>;
   updateOffer(
     id: string,
     expectedVersion: number,
     input: UpdateOfferInput,
   ): Promise<Offer>;
+  submitReservation(input: SubmitReservationInput): Promise<Reservation>;
   createReservation(input: CreateReservationInput): Promise<Reservation>;
   updateReservation(
     id: string,

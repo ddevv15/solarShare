@@ -1,16 +1,17 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCurrentViewerState, redirect } = vi.hoisted(() => ({
+const { getCurrentViewerState, redirect, usePathname } = vi.hoisted(() => ({
   getCurrentViewerState: vi.fn(),
   redirect: vi.fn(),
+  usePathname: vi.fn(() => "/"),
 }));
 
 vi.mock("@/app/_lib/current-viewer", () => ({ getCurrentViewerState }));
 vi.mock("@/app/(app)/actions", () => ({
   signOut: async () => undefined,
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({ redirect, usePathname }));
 
 import ApplicationLayout from "@/app/(app)/layout";
 

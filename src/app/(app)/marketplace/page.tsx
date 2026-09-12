@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CalendarClock, Store } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import { loadBuyerMarketplace } from "@/application/buyer-marketplace";
 import { formatIntervalLabel } from "@/application/market-planning";
 import { FeedbackState } from "@/components/foundation/feedback-state";
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/foundation/page-header";
 import { SourceLabel } from "@/components/foundation/source-label";
 import { StatusLabel } from "@/components/foundation/status-label";
 import { IntervalPicker } from "@/components/market/interval-picker";
+import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
 } from "@/repositories/supabase/caller";
 
 import { ReservationForm } from "./reservation-form";
+import { signOut } from "../actions";
 
 export const metadata: Metadata = {
   title: "Community marketplace | SolarShare",
@@ -47,8 +49,17 @@ type MarketplacePageProps = {
 export default async function MarketplacePage({
   searchParams,
 }: MarketplacePageProps) {
-  const viewer = await getCurrentViewer();
-  if (!viewer) redirect("/sign-in");
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status === "anonymous") redirect("/sign-in");
+  if (viewerState.status === "unresolved") {
+    return (
+      <ViewerAccessFeedback
+        reason={viewerState.reason}
+        signOutAction={signOut}
+      />
+    );
+  }
+  const { viewer } = viewerState;
 
   const query = await searchParams;
   const requestedIntervalId =
@@ -92,8 +103,8 @@ export default async function MarketplacePage({
                     Marketplace interval
                   </CardTitle>
                   <CardDescription>
-                    The market is grouped into keyboard-selectable 15-minute
-                    windows.
+                    Only open 15-minute windows can be selected for a new
+                    reservation.
                   </CardDescription>
                 </div>
               </div>
@@ -131,7 +142,10 @@ export default async function MarketplacePage({
             </CardHeader>
             <CardContent>
               {marketplace.offers.length ? (
-                <Table>
+                <Table
+                  className="min-w-xl"
+                  scrollRegionLabel="Available local solar offers"
+                >
                   <TableCaption>
                     Active seller offers for the selected interval.
                   </TableCaption>
@@ -195,6 +209,7 @@ export default async function MarketplacePage({
           {firstOffer && marketplace.tariff && initialMaximumPrice ? (
             <ReservationForm
               key={marketplace.selectedInterval.id}
+              idempotencyKey={crypto.randomUUID()}
               intervalId={marketplace.selectedInterval.id}
               initialQuantityKwh={normalizeDecimalString(
                 firstOffer.availableKwh,
