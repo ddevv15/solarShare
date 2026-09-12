@@ -9,6 +9,7 @@ import type {
   FeederSnapshot,
   Forecast,
   LedgerEntry,
+  IntervalPricingResult,
   MapFeature,
   MarketInterval,
   MarketplaceItem,
@@ -36,6 +37,7 @@ import type {
   CreateReservationInput,
   PostLedgerInput,
   ResetDemoInput,
+  PriceIntervalInput,
   SelectForecastInput,
   SelectReadingInput,
   TransitionIntervalInput,
@@ -107,6 +109,10 @@ export interface MarketRepository {
     communityId: string,
     intervalStart: string,
   ): Promise<TariffConfig | null>;
+  getFeederForInterval(
+    communityId: string,
+    intervalId: string,
+  ): Promise<FeederSnapshot | null>;
   createOffer(input: CreateOfferInput): Promise<Offer>;
   updateOffer(
     id: string,
@@ -158,6 +164,7 @@ export interface OperatorRepository {
 }
 
 export interface TrustedOperationsRepository {
+  priceInterval(input: PriceIntervalInput): Promise<IntervalPricingResult>;
   claimOutbox(
     workerId: string,
     limit: number,

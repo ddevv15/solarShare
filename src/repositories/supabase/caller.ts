@@ -8,6 +8,7 @@ import type {
   DataHealthItem,
   DecimalString,
   EnergyAsset,
+  FeederSnapshot,
   Forecast,
   LedgerEntry,
   MapFeature,
@@ -30,6 +31,7 @@ import {
   mapCommunity,
   mapCreditAccount,
   mapFeeder,
+  mapFeederRow,
   mapForecastRpc,
   mapInterval,
   mapLedgerEntry,
@@ -575,6 +577,23 @@ export function createMarketRepository(
         .maybeSingle();
       if (result.error) throw mapDatabaseError(result.error);
       return result.data ? mapTariffRow(result.data) : null;
+    },
+
+    async getFeederForInterval(
+      communityId: string,
+      intervalId: string,
+    ): Promise<FeederSnapshot | null> {
+      const result = await client
+        .from("own_feeders")
+        .select("*")
+        .eq("community_id", uuidSchema.parse(communityId))
+        .eq("market_interval_id", uuidSchema.parse(intervalId))
+        .order("observed_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (result.error) throw mapDatabaseError(result.error);
+      return result.data ? mapFeederRow(result.data) : null;
     },
 
     async createOffer(input: CreateOfferInput): Promise<Offer> {

@@ -1,3 +1,5 @@
+import type { PricingExplanation, PricingOutcome } from "@/domain/pricing";
+
 export type DecimalString = string;
 export type PageRequest = { limit: number; cursor?: string };
 export type Page<T> = { items: T[]; nextCursor?: string };
@@ -174,6 +176,17 @@ export type FeederSnapshot = {
   scenarioKey: string | null;
   observedAt: string;
   createdAt: string;
+};
+export type IntervalPricingResult = PricingOutcome & {
+  schemaVersion: "1";
+  pricingSnapshotId: string | null;
+  communityId: string;
+  marketIntervalId: string;
+  tariffConfigId: string | null;
+  feederSnapshotId: string | null;
+  supplyKwh: DecimalString;
+  demandKwh: DecimalString;
+  explanation: PricingExplanation;
 };
 
 export type MarketplaceItem = {

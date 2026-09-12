@@ -36,15 +36,23 @@ describe("decimal string calculations", () => {
     );
   });
 
-  it("calculates the buyer estimate from quantity and tariff strings", () => {
-    expect(estimateReservation("0.2", "6.5", "8.0")).toEqual({
+  it("caps the estimate at the buyer maximum when the market price is higher", () => {
+    expect(estimateReservation("0.2", "7.0", "6.5", "8.0")).toEqual({
       estimatedCost: "1.3",
       estimatedSaving: "0.3",
     });
   });
 
+  it("uses the market price when it sits below the buyer maximum", () => {
+    // The buyer pays the cleared price, not the most they were willing to pay.
+    expect(estimateReservation("0.2", "5.75", "6.5", "8.0")).toEqual({
+      estimatedCost: "1.15",
+      estimatedSaving: "0.45",
+    });
+  });
+
   it("never reports a negative saving above the retail rate", () => {
-    expect(estimateReservation("0.2", "9", "8")).toEqual({
+    expect(estimateReservation("0.2", "9", "9", "8")).toEqual({
       estimatedCost: "1.8",
       estimatedSaving: "0",
     });

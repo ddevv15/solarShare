@@ -20,7 +20,7 @@ _These are recommendations to keep your build orderly, not requirements. You may
 | 5 | Seeded identity and community | Release 1 | done |
 | 6 | Seller forecast and sharing | Release 1 | done |
 | 7 | Buyer marketplace and reservation | Release 1 | done |
-| 8 | Explainable pricing | Release 1 | planned |
+| 8 | Explainable pricing | Release 1 | in-progress |
 | 9 | Matching and allocation | Release 1 | planned |
 | 10 | Settlement and credit ledger | Release 1 | planned |
 | 11 | Operator demo and clean reset | Release 1 | planned |
@@ -90,10 +90,18 @@ Show available local solar in a compact market view and let a seeded buyer reque
 **Code:** `src/application/buyer-marketplace.ts`, `src/app/(app)/marketplace`, `src/domain/decimal.ts`, and `src/components/market`
 - [x] Build it: `/develop buyer marketplace and reservation`
 
-### 8. Explainable pricing · planned · needs a decision · Beta
+### 8. Explainable pricing · in-progress · Beta
 Turn tariffs, local supply, demand, user limits, and the simulated import congestion signal into a bounded deterministic price with a plain explanation.
 **Done when:** identical inputs return the same versioned price, the result stays inside the allowed corridor and user limits, invalid tariff settings pause the interval, and focused tests cover limits and pressure changes.
-- [ ] Design it (spec): `/architect explainable pricing`
+**Spec:** [0005](../specs/0005-explainable-pricing/index.md)
+- [x] Design it (spec): `/architect explainable pricing`
+- [ ] Build it: `/develop explainable pricing`
+  - [ ] Build the exact versioned domain formula and shared pricing vectors, covers AC-1, AC-2, AC-10, and AC-11
+  - [ ] Build the trusted database calculator, snapshot writer, validation, locking, and grants in a forward migration, covers AC-1 through AC-9 and AC-11
+  - [ ] Build the typed repository and application boundary and replace the buyer estimate without restructuring the screen, covers AC-8 through AC-11
+  - [ ] Cover pricing outcomes, explanations, parity, and privilege boundaries, covers AC-1 through AC-11
+- [ ] Verify it: `/check verify explainable pricing`
+- [ ] Test it: `/test explainable pricing`
 
 ### 9. Matching and allocation · planned · needs a decision · Beta
 Match eligible offers and reservations per community and interval without allocating the same energy twice.

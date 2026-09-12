@@ -31,16 +31,24 @@ type ReservationFormProps = {
   intervalId: string;
   initialQuantityKwh: string;
   initialMaximumPrice: string;
+  marketUnitPrice: string;
+  pricingSummary: string;
   retailRate: string;
 };
 
 function estimate(
   quantityKwh: string,
+  marketUnitPrice: string,
   maximumPrice: string,
   retailRate: string,
 ) {
   try {
-    return estimateReservation(quantityKwh, maximumPrice, retailRate);
+    return estimateReservation(
+      quantityKwh,
+      marketUnitPrice,
+      maximumPrice,
+      retailRate,
+    );
   } catch {
     return { estimatedCost: "—", estimatedSaving: "—" };
   }
@@ -50,6 +58,8 @@ export function ReservationForm({
   intervalId,
   initialQuantityKwh,
   initialMaximumPrice,
+  marketUnitPrice,
+  pricingSummary,
   retailRate,
 }: ReservationFormProps) {
   const [quantityKwh, setQuantityKwh] = useState(initialQuantityKwh);
@@ -58,7 +68,12 @@ export function ReservationForm({
     reserveEnergyAction,
     initialMarketActionState,
   );
-  const preview = estimate(quantityKwh, maximumPrice, retailRate);
+  const preview = estimate(
+    quantityKwh,
+    marketUnitPrice,
+    maximumPrice,
+    retailRate,
+  );
   const quantityError = state.fieldErrors?.quantityKwh?.[0];
   const priceError = state.fieldErrors?.price?.[0];
 
@@ -168,8 +183,9 @@ export function ReservationForm({
         </form>
       </CardContent>
       <CardFooter className="text-sm leading-relaxed text-muted-foreground">
-        Cost uses your maximum price. Saving compares it with the active seeded
-        retail rate. Final cost waits for pricing, matching, and settlement.
+        {pricingSummary} Your estimate uses this price, capped by your maximum,
+        and compares it with the active seeded retail rate. Final cost waits for
+        matching and settlement.
       </CardFooter>
     </Card>
   );

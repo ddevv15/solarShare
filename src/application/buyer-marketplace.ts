@@ -2,12 +2,14 @@ import {
   listScenarioPlanningIntervals,
   selectPlanningInterval,
 } from "@/application/market-planning";
+import { calculateMarketplacePreview } from "@/application/pricing";
 import {
   requireDashboardKind,
   ViewerAccessError,
   type ViewerContext,
 } from "@/application/viewer";
 import { normalizeDecimalString } from "@/domain/decimal";
+import type { PricingOutcome } from "@/domain/pricing";
 import type {
   MarketInterval,
   MarketplaceItem,
@@ -29,6 +31,7 @@ export type BuyerMarketplace = {
   selectedInterval: MarketInterval | null;
   offers: MarketplaceItem[];
   tariff: TariffConfig | null;
+  pricingPreview: PricingOutcome | null;
 };
 
 export async function loadBuyerMarketplace(
@@ -48,10 +51,16 @@ export async function loadBuyerMarketplace(
     requestedIntervalId,
   );
   if (!selectedInterval) {
-    return { intervals, selectedInterval: null, offers: [], tariff: null };
+    return {
+      intervals,
+      selectedInterval: null,
+      offers: [],
+      tariff: null,
+      pricingPreview: null,
+    };
   }
 
-  const [marketplace, tariff] = await Promise.all([
+  const [marketplace, tariff, feeder] = await Promise.all([
     repositories.community.listMarketplace(
       viewer.community.id,
       selectedInterval.id,
@@ -61,6 +70,10 @@ export async function loadBuyerMarketplace(
       viewer.community.id,
       selectedInterval.intervalStart,
     ),
+    repositories.market.getFeederForInterval(
+      viewer.community.id,
+      selectedInterval.id,
+    ),
   ]);
 
   return {
@@ -68,6 +81,14 @@ export async function loadBuyerMarketplace(
     selectedInterval,
     offers: marketplace.items.filter((item) => item.side === "offer"),
     tariff,
+    pricingPreview: tariff
+      ? calculateMarketplacePreview({
+          currency: viewer.community.currency,
+          tariff,
+          feeder,
+          listings: marketplace.items,
+        })
+      : null,
   };
 }
 

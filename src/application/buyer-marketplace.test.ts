@@ -107,6 +107,7 @@ function repositories() {
   const market = {
     listIntervals: vi.fn().mockResolvedValue({ items: [selectedInterval] }),
     getTariffForInterval: vi.fn().mockResolvedValue(tariff),
+    getFeederForInterval: vi.fn(),
     createOffer: vi.fn(),
     updateOffer: vi.fn(),
     createReservation: vi.fn(),
