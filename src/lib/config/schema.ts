@@ -44,6 +44,7 @@ export const webEnvironmentSchema = publicEnvironmentSchema
     TASKS_ENABLED: environmentBoolean,
     SUPABASE_URL: optionalUrl,
     SUPABASE_SECRET_KEY: optionalString,
+    SOLARSHARE_DEMO_PASSWORD: optionalString,
     TRIGGER_PROJECT_REF: optionalString,
     TRIGGER_SECRET_KEY: optionalString,
     OPEN_METEO_BASE_URL: optionalUrl,
@@ -58,6 +59,17 @@ export const webEnvironmentSchema = publicEnvironmentSchema
     OTEL_SERVICE_NAME: z.string().trim().min(1).default("solarshare-web"),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.APP_ENV === "production" &&
+      environment.SOLARSHARE_DEMO_PASSWORD
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "SOLARSHARE_DEMO_PASSWORD is not allowed in production",
+        path: ["SOLARSHARE_DEMO_PASSWORD"],
+      });
+    }
+
     if (environment.TASKS_ENABLED && !environment.TRIGGER_SECRET_KEY) {
       context.addIssue({
         code: "custom",
@@ -79,12 +91,24 @@ export const workerEnvironmentSchema = z
     TASKS_ENABLED: environmentBoolean,
     SUPABASE_URL: optionalUrl,
     SUPABASE_SECRET_KEY: optionalString,
+    SOLARSHARE_DEMO_PASSWORD: optionalString,
     TRIGGER_PROJECT_REF: optionalString,
     OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl,
     OTEL_EXPORTER_OTLP_HEADERS: optionalString,
     OTEL_SERVICE_NAME: z.string().trim().min(1).default("solarshare-tasks"),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.APP_ENV === "production" &&
+      environment.SOLARSHARE_DEMO_PASSWORD
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "SOLARSHARE_DEMO_PASSWORD is not allowed in production",
+        path: ["SOLARSHARE_DEMO_PASSWORD"],
+      });
+    }
+
     if (!environment.TASKS_ENABLED) {
       return;
     }

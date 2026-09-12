@@ -177,6 +177,7 @@ create table public.import_jobs (
   updated_at timestamptz not null default now(),
   unique (community_id, id),
   unique (community_id, uploader_user_id, file_sha256),
+  unique (community_id, asset_id, id),
   unique (community_id, uploader_user_id, asset_id, id),
   foreign key (community_id, uploader_user_id) references public.community_members(community_id, user_id) on delete restrict,
   foreign key (community_id, asset_id) references public.energy_assets(community_id, id) on delete restrict,
@@ -746,6 +747,10 @@ declare credit_count integer;
 declare debit_amount numeric;
 declare credit_amount numeric;
 begin
+  -- Entries may vanish only together with their parent transaction (demo reset).
+  -- Every other write is validated, including trusted postings, because a balance
+  -- guard exists to catch bugs in the trusted writer itself.
+  if tg_op = 'DELETE' and not exists (select 1 from public.ledger_transactions where id = tx_id) then return null; end if;
   select count(*) filter (where entry_type = 'debit'), count(*) filter (where entry_type = 'credit'), max(amount) filter (where entry_type = 'debit'), max(amount) filter (where entry_type = 'credit')
     into debit_count, credit_count, debit_amount, credit_amount
     from public.ledger_entries where ledger_transaction_id = tx_id;
@@ -1159,7 +1164,7 @@ begin
     select id from public.outbox_events where ((status in ('pending','failed') and available_at<=statement_timestamp()) or (status='claimed' and claim_expires_at<=statement_timestamp())) and attempt_count<8 order by available_at,created_at,id limit p_limit for update skip locked
   ), claimed as (
     update public.outbox_events e set status='claimed',claimed_at=statement_timestamp(),claimed_by=p_worker_id,claim_token=gen_random_uuid(),claim_expires_at=statement_timestamp()+make_interval(secs=>p_claim_ttl_seconds),attempt_count=e.attempt_count+1,last_error_code=null from candidates c where e.id=c.id returning e.*
-  ) select jsonb_build_object('eventId',id,'communityId',community_id,'topic',topic,'aggregateType',aggregate_type,'aggregateaggregateId',aggregate_id,'revision',revision::text,'payload',payload,'claimToken',claim_token,'claimExpiresAt',claim_expires_at,'attemptCount',attempt_count::text,'availableAt',available_at) from claimed;
+  ) select jsonb_build_object('eventId',id,'communityId',community_id,'topic',topic,'aggregateType',aggregate_type,'aggregateId',aggregate_id,'revision',revision::text,'payload',payload,'claimToken',claim_token,'claimExpiresAt',claim_expires_at,'attemptCount',attempt_count::text,'availableAt',available_at) from claimed;
 end; $$;
 
 create function public.complete_outbox_event(p_event_id uuid, p_claim_token uuid, p_delivered boolean, p_error_code text default null)
@@ -1178,3 +1183,197 @@ begin
   end if;
   return jsonb_build_object('eventId',row.id,'communityId',row.community_id,'status',row.status,'attemptCount',row.attempt_count::text,'availableAt',row.available_at,'deliveredAt',row.delivered_at);
 end; $$;
+
+create function public.post_ledger_transaction(p_community_id uuid, p_settlement_id uuid, p_buyer_account_id uuid, p_seller_account_id uuid, p_idempotency_key text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare request_hash text; declare prior public.idempotency_records; declare settlement public.settlements; declare allocation public.allocations; declare offer public.offers; declare reservation public.reservations; declare buyer public.credit_accounts; declare seller public.credit_accounts; declare transaction_id uuid;
+begin
+  if btrim(p_idempotency_key)='' then raise exception 'idempotency key is required' using errcode='22023'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('solarshare:'||p_community_id::text,0));
+  request_hash:=encode(extensions.digest(convert_to(jsonb_build_object('communityId',p_community_id,'settlementId',p_settlement_id,'buyerAccountId',p_buyer_account_id,'sellerAccountId',p_seller_account_id)::text,'UTF8'),'sha256'),'hex');
+  select * into prior from public.idempotency_records where community_id=p_community_id and operation='ledger.post.v1' and idempotency_key=p_idempotency_key;
+  if found then
+    if prior.request_sha256<>request_hash then raise exception 'idempotency conflict' using errcode='23505'; end if;
+    return nullif(prior.result->>'transactionId','')::uuid;
+  end if;
+  select * into strict settlement from public.settlements where id=p_settlement_id and community_id=p_community_id;
+  select * into strict allocation from public.allocations where id=settlement.allocation_id;
+  select * into strict offer from public.offers where id=allocation.offer_id;
+  select * into strict reservation from public.reservations where id=allocation.reservation_id;
+  select * into strict buyer from public.credit_accounts where id=p_buyer_account_id and community_id=p_community_id for update;
+  select * into strict seller from public.credit_accounts where id=p_seller_account_id and community_id=p_community_id for update;
+  if buyer.owner_user_id<>reservation.buyer_user_id or seller.owner_user_id<>offer.seller_user_id or buyer.currency<>seller.currency or buyer.id=seller.id then raise exception 'ledger accounts do not match trade parties' using errcode='23514'; end if;
+  perform set_config('solarshare.trusted_write','on',true);
+  if settlement.credit_amount>0 then
+    transaction_id:=gen_random_uuid();
+    insert into public.ledger_transactions(id,community_id,settlement_id,currency,amount,posted_at,scenario_generation_id) values(transaction_id,p_community_id,p_settlement_id,buyer.currency,settlement.credit_amount,statement_timestamp(),settlement.scenario_generation_id);
+    insert into public.ledger_entries(community_id,ledger_transaction_id,account_id,entry_type,amount,scenario_generation_id) values
+      (p_community_id,transaction_id,buyer.id,'debit',settlement.credit_amount,settlement.scenario_generation_id),
+      (p_community_id,transaction_id,seller.id,'credit',settlement.credit_amount,settlement.scenario_generation_id);
+    insert into public.audit_events(community_id,event_type,subject_type,subject_id,details) values(p_community_id,'ledger.posted','ledger_transaction',transaction_id,jsonb_build_object('transactionId',transaction_id,'amount',to_char(settlement.credit_amount,'FM9999999990.00')));
+    insert into public.outbox_events(community_id,topic,aggregate_type,aggregate_id,revision,payload,scenario_generation_id) values(p_community_id,'ledger.posted','ledger_transaction',transaction_id,1,jsonb_build_object('communityId',p_community_id,'topic','ledger.posted','aggregateId',transaction_id,'revision','1'),settlement.scenario_generation_id);
+  end if;
+  insert into public.idempotency_records(community_id,operation,idempotency_key,request_sha256,status,result_version,result,completed_at) values(p_community_id,'ledger.post.v1',p_idempotency_key,request_hash,'completed','1',jsonb_build_object('transactionId',transaction_id),statement_timestamp());
+  return transaction_id;
+end; $$;
+
+create function private.seed_demo_scenario(p_community_id uuid, p_anchor_date date, p_generation_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare tz text; declare anchor_start timestamptz; declare history_start timestamptz; declare operator_id constant uuid:='20000000-0000-4000-8000-000000000001'; declare seller_id constant uuid:='20000000-0000-4000-8000-000000000002'; declare buyer1_id constant uuid:='20000000-0000-4000-8000-000000000003'; declare solar_id constant uuid:='30000000-0000-4000-8000-000000000001'; declare seller_meter constant uuid:='30000000-0000-4000-8000-000000000101'; declare interval_id uuid; declare history_interval_id uuid; declare pricing_id uuid; declare historical_offer uuid; declare historical_reservation uuid; declare allocation_id uuid; declare settlement_id uuid; declare tariff_id constant uuid:='40000000-0000-4000-8000-000000000001'; declare slot integer; declare generation numeric(16,6); declare seller_consumption numeric(16,6); declare buyer_no integer; declare buyer_value numeric(16,6); declare asset_id uuid; declare user_id uuid; declare reading_id uuid; declare transaction_id uuid; declare buyer_account uuid; declare seller_account uuid; declare counts jsonb;
+begin
+  select timezone into strict tz from public.communities where id=p_community_id;
+  anchor_start:=(p_anchor_date::timestamp at time zone tz);
+  history_start:=((p_anchor_date-1)::date::timestamp + time '12:00') at time zone tz;
+  perform set_config('solarshare.trusted_write','on',true);
+
+  for slot in 0..95 loop
+    interval_id:=private.seed_uuid('1','interval','0:'||slot);
+    insert into public.market_intervals(id,community_id,interval_start,interval_end,status,scenario_generation_id,created_at,updated_at) values(interval_id,p_community_id,anchor_start+slot*interval '15 minutes',anchor_start+(slot+1)*interval '15 minutes',case when slot=48 then 'open' else 'planned' end,p_generation_id,anchor_start-interval '1 day',anchor_start-interval '1 day');
+    generation:=case when slot between 24 and 72 then round((1.10*sin(pi()*(slot-24)/48))::numeric,6) else 0 end;
+    seller_consumption:=case when slot between 28 and 31 or slot between 48 and 51 then 0.320000 else 0.180000 end;
+    reading_id:=private.seed_uuid('1','reading','0:'||slot||':'||solar_id||':generation:simulated');
+    insert into public.energy_readings(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,quality,source_record_key,original_value,original_unit,observed_at,retrieved_at,data_connection_id,scenario_generation_id,created_at) values(reading_id,p_community_id,solar_id,interval_id,'generation',generation,'simulated','estimated','generation:0:'||slot||':'||solar_id,generation,'kWh',anchor_start+(slot+1)*interval '15 minutes',anchor_start+(slot+1)*interval '15 minutes'+interval '1 minute',private.seed_uuid('1','connection',solar_id::text),p_generation_id,anchor_start-interval '1 day');
+    insert into public.energy_readings(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,quality,source_record_key,original_value,original_unit,observed_at,retrieved_at,data_connection_id,scenario_generation_id,created_at) values(private.seed_uuid('1','reading','0:'||slot||':'||seller_meter||':consumption:simulated'),p_community_id,seller_meter,interval_id,'consumption',seller_consumption,'simulated','estimated','consumption:0:'||slot||':'||seller_meter,seller_consumption,'kWh',anchor_start+(slot+1)*interval '15 minutes',anchor_start+(slot+1)*interval '15 minutes'+interval '1 minute',private.seed_uuid('1','connection',seller_meter::text),p_generation_id,anchor_start-interval '1 day');
+    insert into public.energy_readings(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,quality,source_record_key,original_value,original_unit,observed_at,retrieved_at,data_connection_id,scenario_generation_id,created_at) values(private.seed_uuid('1','reading','0:'||slot||':'||solar_id||':reserve:simulated'),p_community_id,solar_id,interval_id,'reserve',0.200000,'simulated','estimated','reserve:0:'||slot||':'||solar_id,0.200000,'kWh',anchor_start+(slot+1)*interval '15 minutes',anchor_start+(slot+1)*interval '15 minutes'+interval '1 minute',private.seed_uuid('1','connection',solar_id::text),p_generation_id,anchor_start-interval '1 day');
+    for buyer_no in 1..4 loop
+      asset_id:=('30000000-0000-4000-8000-'||lpad((100+buyer_no+1)::text,12,'0'))::uuid;
+      buyer_value:=case buyer_no when 1 then 0.160000 when 2 then 0.200000 when 3 then 0.120000 else 0.180000 end + case when buyer_no=2 and slot between 48 and 51 then 0.180000 when buyer_no=4 and slot between 44 and 55 then 0.120000 else 0 end;
+      insert into public.energy_readings(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,quality,source_record_key,original_value,original_unit,observed_at,retrieved_at,data_connection_id,scenario_generation_id,created_at) values(private.seed_uuid('1','reading','0:'||slot||':'||asset_id||':consumption:simulated'),p_community_id,asset_id,interval_id,'consumption',buyer_value,'simulated','estimated','consumption:0:'||slot||':'||asset_id,buyer_value,'kWh',anchor_start+(slot+1)*interval '15 minutes',anchor_start+(slot+1)*interval '15 minutes'+interval '1 minute',private.seed_uuid('1','connection',asset_id::text),p_generation_id,anchor_start-interval '1 day');
+    end loop;
+    insert into public.forecasts(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,model_version,source_record_key,issued_at,scenario_generation_id,created_at) values
+      (private.seed_uuid('1','forecast','0:'||slot||':'||solar_id||':generation'),p_community_id,solar_id,interval_id,'generation',generation,'simulated','seed-v1','generation:0:'||slot,anchor_start-interval '6 hours',p_generation_id,anchor_start-interval '1 day'),
+      (private.seed_uuid('1','forecast','0:'||slot||':'||seller_meter||':consumption'),p_community_id,seller_meter,interval_id,'consumption',seller_consumption,'simulated','seed-v1','consumption:0:'||slot,anchor_start-interval '6 hours',p_generation_id,anchor_start-interval '1 day'),
+      (private.seed_uuid('1','forecast','0:'||slot||':'||solar_id||':reserve'),p_community_id,solar_id,interval_id,'reserve',0.200000,'simulated','seed-v1','reserve:0:'||slot,anchor_start-interval '6 hours',p_generation_id,anchor_start-interval '1 day'),
+      (private.seed_uuid('1','forecast','0:'||slot||':'||solar_id||':surplus'),p_community_id,solar_id,interval_id,'surplus',greatest(generation-seller_consumption-0.200000,0),'simulated','seed-v1','surplus:0:'||slot,anchor_start-interval '6 hours',p_generation_id,anchor_start-interval '1 day');
+    insert into public.feeder_snapshots(id,community_id,market_interval_id,capacity_kw,load_kw,congestion_ratio,source_type,scenario_key,source_record_key,observed_at,scenario_generation_id,created_at) values(private.seed_uuid('1','feeder',interval_id||':normal'),p_community_id,interval_id,25.000000,12.000000,0.480000,'simulated','normal','normal:'||interval_id,anchor_start+slot*interval '15 minutes',p_generation_id,anchor_start-interval '1 day');
+  end loop;
+
+  interval_id:=private.seed_uuid('1','interval','0:48');
+  insert into public.feeder_snapshots(id,community_id,market_interval_id,capacity_kw,load_kw,congestion_ratio,source_type,scenario_key,source_record_key,observed_at,scenario_generation_id,created_at) values(private.seed_uuid('1','feeder',interval_id||':constrained'),p_community_id,interval_id,25,22.5,0.9,'simulated','constrained','constrained:'||interval_id,anchor_start+48*interval '15 minutes'+interval '1 minute',p_generation_id,anchor_start-interval '1 day');
+  insert into public.offers(id,community_id,market_interval_id,seller_user_id,solar_asset_id,forecast_id,quantity_kwh,remaining_kwh,minimum_price,suggested_price,is_manual_quantity,auto_adjust,status,scenario_generation_id,created_at,updated_at) values('50000000-0000-4000-8000-000000000001',p_community_id,interval_id,seller_id,solar_id,private.seed_uuid('1','forecast','0:48:'||solar_id||':surplus'),0.8,0.8,4.5,5.75,true,false,'open',p_generation_id,anchor_start+47*interval '15 minutes',anchor_start+47*interval '15 minutes');
+  for buyer_no in 1..4 loop
+    user_id:=('20000000-0000-4000-8000-'||lpad((buyer_no+2)::text,12,'0'))::uuid;
+    insert into public.reservations(id,community_id,market_interval_id,buyer_user_id,quantity_kwh,remaining_kwh,maximum_price,auto_adjust,status,scenario_generation_id,created_at,updated_at) values(('50000000-0000-4000-8000-'||lpad((100+buyer_no)::text,12,'0'))::uuid,p_community_id,interval_id,user_id,0.2,0.2,6.5,false,'active',p_generation_id,anchor_start+47*interval '15 minutes',anchor_start+47*interval '15 minutes');
+  end loop;
+
+  history_interval_id:=private.seed_uuid('1','interval','-1:48');
+  insert into public.market_intervals(id,community_id,interval_start,interval_end,status,scenario_generation_id,created_at,updated_at) values(history_interval_id,p_community_id,history_start,history_start+interval '15 minutes','settled',p_generation_id,anchor_start-interval '1 day',anchor_start-interval '1 day');
+  insert into public.energy_readings(id,community_id,asset_id,market_interval_id,metric,value_kwh,source_type,quality,source_record_key,original_value,original_unit,observed_at,retrieved_at,data_connection_id,scenario_generation_id,created_at) values
+    (private.seed_uuid('1','reading','-1:48:'||solar_id||':generation:simulated'),p_community_id,solar_id,history_interval_id,'generation',0.58,'simulated','estimated','generation:-1:48:'||solar_id,0.58,'kWh',history_start+interval '15 minutes',history_start+interval '16 minutes',private.seed_uuid('1','connection',solar_id::text),p_generation_id,anchor_start-interval '1 day'),
+    (private.seed_uuid('1','reading','-1:48:'||seller_meter||':consumption:simulated'),p_community_id,seller_meter,history_interval_id,'consumption',0.4,'simulated','estimated','consumption:-1:48:'||seller_meter,0.4,'kWh',history_start+interval '15 minutes',history_start+interval '16 minutes',private.seed_uuid('1','connection',seller_meter::text),p_generation_id,anchor_start-interval '1 day'),
+    (private.seed_uuid('1','reading','-1:48:'||solar_id||':reserve:simulated'),p_community_id,solar_id,history_interval_id,'reserve',0,'simulated','estimated','reserve:-1:48:'||solar_id,0,'kWh',history_start+interval '15 minutes',history_start+interval '16 minutes',private.seed_uuid('1','connection',solar_id::text),p_generation_id,anchor_start-interval '1 day');
+  insert into public.feeder_snapshots(id,community_id,market_interval_id,capacity_kw,load_kw,congestion_ratio,source_type,scenario_key,source_record_key,observed_at,scenario_generation_id,created_at) values(private.seed_uuid('1','feeder',history_interval_id||':normal'),p_community_id,history_interval_id,25,12,0.48,'simulated','normal','normal:'||history_interval_id,history_start,p_generation_id,anchor_start-interval '1 day');
+  pricing_id:=private.seed_uuid('1','pricing',history_interval_id::text); historical_offer:=private.seed_uuid('1','offer','historical'); historical_reservation:=private.seed_uuid('1','reservation','historical'); allocation_id:=private.seed_uuid('1','allocation','historical'); settlement_id:=private.seed_uuid('1','settlement','historical');
+  insert into public.pricing_snapshots(id,community_id,market_interval_id,tariff_config_id,feeder_snapshot_id,algorithm_version,supply_kwh,demand_kwh,unit_price,explanation,scenario_generation_id,created_at) values(pricing_id,p_community_id,history_interval_id,tariff_id,private.seed_uuid('1','feeder',history_interval_id||':normal'),'seed-v1',0.2,0.2,5.75,jsonb_build_object('schemaVersion','1','source','seed','reason','historical fixture'),p_generation_id,history_start);
+  insert into public.offers(id,community_id,market_interval_id,seller_user_id,solar_asset_id,quantity_kwh,remaining_kwh,minimum_price,suggested_price,is_manual_quantity,status,scenario_generation_id,created_at,updated_at) values(historical_offer,p_community_id,history_interval_id,seller_id,solar_id,0.2,0,4.5,5.75,true,'closed',p_generation_id,history_start-interval '1 hour',history_start);
+  insert into public.reservations(id,community_id,market_interval_id,buyer_user_id,quantity_kwh,remaining_kwh,maximum_price,status,scenario_generation_id,created_at,updated_at) values(historical_reservation,p_community_id,history_interval_id,buyer1_id,0.2,0,6.5,'closed',p_generation_id,history_start-interval '1 hour',history_start);
+  insert into public.allocations(id,community_id,market_interval_id,offer_id,reservation_id,pricing_snapshot_id,allocated_kwh,unit_price,status,scenario_generation_id,created_at) values(allocation_id,p_community_id,history_interval_id,historical_offer,historical_reservation,pricing_id,0.2,5.75,'settled',p_generation_id,history_start);
+  insert into public.settlements(id,community_id,allocation_id,delivered_kwh,unit_price,credit_amount,status,settled_at,scenario_generation_id,created_at) values(settlement_id,p_community_id,allocation_id,0.18,5.75,1.04,'completed',history_start+interval '16 minutes',p_generation_id,history_start+interval '16 minutes');
+  insert into public.settlement_inputs(settlement_id,community_id,input_kind,energy_reading_id,scenario_generation_id,created_at) values
+    (settlement_id,p_community_id,'generation',private.seed_uuid('1','reading','-1:48:'||solar_id||':generation:simulated'),p_generation_id,history_start+interval '16 minutes'),
+    (settlement_id,p_community_id,'consumption',private.seed_uuid('1','reading','-1:48:'||seller_meter||':consumption:simulated'),p_generation_id,history_start+interval '16 minutes'),
+    (settlement_id,p_community_id,'reserve',private.seed_uuid('1','reading','-1:48:'||solar_id||':reserve:simulated'),p_generation_id,history_start+interval '16 minutes');
+  transaction_id:=private.seed_uuid('1','ledger_transaction','historical'); buyer_account:=private.seed_uuid('1','account',buyer1_id::text); seller_account:=private.seed_uuid('1','account',seller_id::text);
+  insert into public.ledger_transactions(id,community_id,settlement_id,currency,amount,posted_at,scenario_generation_id,created_at) values(transaction_id,p_community_id,settlement_id,'INR',1.04,history_start+interval '16 minutes',p_generation_id,history_start+interval '16 minutes');
+  insert into public.ledger_entries(id,community_id,ledger_transaction_id,account_id,entry_type,amount,scenario_generation_id,created_at) values
+    (private.seed_uuid('1','ledger_entry','historical:debit'),p_community_id,transaction_id,buyer_account,'debit',1.04,p_generation_id,history_start+interval '16 minutes'),
+    (private.seed_uuid('1','ledger_entry','historical:credit'),p_community_id,transaction_id,seller_account,'credit',1.04,p_generation_id,history_start+interval '16 minutes');
+  insert into public.idempotency_records(id,community_id,operation,idempotency_key,request_sha256,status,result_version,result,created_at,completed_at) values(private.seed_uuid('1','idempotency','seed:historical-ledger'),p_community_id,'ledger.post.v1','seed:historical-ledger',encode(extensions.digest(convert_to('seed:historical-ledger','UTF8'),'sha256'),'hex'),'completed','1',jsonb_build_object('transactionId',transaction_id),history_start+interval '16 minutes',history_start+interval '16 minutes') on conflict (community_id,operation,idempotency_key) do nothing;
+  insert into public.audit_events(id,community_id,event_type,subject_type,subject_id,details,occurred_at) values(private.seed_uuid('1','audit','ledger.posted'),p_community_id,'ledger.posted','ledger_transaction',transaction_id,jsonb_build_object('transactionId',transaction_id,'amount','1.04'),history_start+interval '16 minutes') on conflict (id) do nothing;
+  insert into public.outbox_events(id,community_id,topic,aggregate_type,aggregate_id,revision,payload,status,available_at,attempt_count,delivered_at,scenario_generation_id,created_at) values(private.seed_uuid('1','outbox','ledger.posted'),p_community_id,'ledger.posted','ledger_transaction',transaction_id,1,jsonb_build_object('communityId',p_community_id,'topic','ledger.posted','aggregateId',transaction_id,'revision','1'),'delivered',history_start+interval '16 minutes',1,history_start+interval '16 minutes',p_generation_id,history_start+interval '16 minutes') on conflict (id) do nothing;
+  counts:=jsonb_build_object('marketIntervals',97,'energyReadings',675,'forecasts',384,'feederSnapshots',98,'pricingSnapshots',1,'offers',2,'reservations',5,'allocations',1,'settlements',1,'settlementInputs',3,'ledgerTransactions',1,'ledgerEntries',2,'auditEvents',1,'idempotencyRecords',1,'outboxEvents',1);
+  return counts;
+end; $$;
+
+create function public.reset_demo_community(p_community_id uuid, p_actor_user_id uuid, p_idempotency_key text, p_anchor_date date default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare prior public.idempotency_records; declare request_hash text; declare resolved_anchor date; declare old_generation uuid; declare generation_id uuid; declare counts jsonb; declare result_value jsonb; declare tz text;
+begin
+  if p_community_id<>'10000000-0000-4000-8000-000000000001' or not exists(select 1 from public.communities where id=p_community_id and demo_seed_key='solarshare-demo-v1' and seed_version='1') then raise exception 'community is not the SolarShare demo' using errcode='42501'; end if;
+  if not exists(select 1 from public.community_members where community_id=p_community_id and user_id=p_actor_user_id and member_role='operator' and status='active') then raise exception 'actor is not an active operator' using errcode='42501'; end if;
+  if btrim(p_idempotency_key)='' then raise exception 'idempotency key is required' using errcode='22023'; end if;
+  select * into prior from public.idempotency_records where community_id=p_community_id and operation='demo.reset.v1' and idempotency_key=p_idempotency_key;
+  if found then return prior.result; end if;
+  select timezone into strict tz from public.communities where id=p_community_id;
+  resolved_anchor:=coalesce(p_anchor_date, ((statement_timestamp() at time zone tz)::date+1));
+  request_hash:=encode(extensions.digest(convert_to(jsonb_build_object('communityId',p_community_id,'actorUserId',p_actor_user_id,'anchorDate',resolved_anchor)::text,'UTF8'),'sha256'),'hex');
+  perform pg_advisory_xact_lock(hashtextextended('solarshare:'||p_community_id::text,0));
+  select scenario_generation_id into old_generation from public.market_intervals where community_id=p_community_id and scenario_generation_id is not null limit 1;
+  generation_id:=private.seed_uuid('1','generation',p_community_id||':'||resolved_anchor);
+  perform set_config('solarshare.trusted_write','on',true);
+  update public.outbox_events set status='failed',last_error_code='demo_reset',claimed_at=null,claimed_by=null,claim_token=null,claim_expires_at=null where community_id=p_community_id and scenario_generation_id=old_generation and status in ('pending','claimed');
+  delete from public.settlement_inputs where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.ledger_entries where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.ledger_transactions where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.settlements where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.allocations where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.offers where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.reservations where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.pricing_snapshots where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.feeder_snapshots where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.forecasts where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.energy_readings where community_id=p_community_id and scenario_generation_id=old_generation;
+  delete from public.market_intervals where community_id=p_community_id and scenario_generation_id=old_generation;
+  counts:=private.seed_demo_scenario(p_community_id,resolved_anchor,generation_id);
+  result_value:=jsonb_build_object('schemaVersion','1','communityId',p_community_id,'generationId',generation_id,'anchorDate',resolved_anchor,'counts',counts);
+  insert into public.audit_events(community_id,actor_user_id,event_type,subject_type,subject_id,request_id,details) values(p_community_id,p_actor_user_id,'demo.reset','community',p_community_id,p_idempotency_key,jsonb_build_object('generationId',generation_id,'anchorDate',resolved_anchor,'counts',counts));
+  insert into public.outbox_events(community_id,topic,aggregate_type,aggregate_id,revision,payload) values(p_community_id,'demo.reset','community',p_community_id,extract(epoch from statement_timestamp())::bigint,jsonb_build_object('communityId',p_community_id,'topic','demo.reset','aggregateId',p_community_id,'revision',extract(epoch from statement_timestamp())::bigint));
+  insert into public.idempotency_records(community_id,actor_user_id,operation,idempotency_key,request_sha256,status,result_version,result,completed_at) values(p_community_id,p_actor_user_id,'demo.reset.v1',p_idempotency_key,request_hash,'completed','1',result_value,statement_timestamp());
+  return result_value;
+end; $$;
+
+create function private.derive_owner_insert()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if (select auth.uid()) is null then return new; end if;
+  if tg_table_name='energy_assets' then new.owner_user_id=(select auth.uid());
+  elsif tg_table_name='import_jobs' then new.uploader_user_id=(select auth.uid());
+  elsif tg_table_name='offers' then new.seller_user_id=(select auth.uid()); new.remaining_kwh=new.quantity_kwh; new.status='draft'; new.version=1;
+  elsif tg_table_name='reservations' then new.buyer_user_id=(select auth.uid()); new.remaining_kwh=new.quantity_kwh; new.status='pending'; new.version=1;
+  end if;
+  return new;
+end; $$;
+
+create trigger energy_assets_derive_owner before insert on public.energy_assets for each row execute function private.derive_owner_insert();
+create trigger import_jobs_derive_owner before insert on public.import_jobs for each row execute function private.derive_owner_insert();
+create trigger offers_derive_owner before insert on public.offers for each row execute function private.derive_owner_insert();
+create trigger reservations_derive_owner before insert on public.reservations for each row execute function private.derive_owner_insert();
+
+revoke all on all tables in schema public from anon, authenticated, service_role;
+revoke all on all sequences in schema public from anon, authenticated, service_role;
+revoke execute on all functions in schema private from public, anon, authenticated, service_role;
+
+grant usage on schema public to authenticated, service_role;
+grant usage on schema private to authenticated;
+grant execute on function private.is_active_member(uuid), private.is_active_operator(uuid) to authenticated;
+
+grant select on public.profiles to authenticated;
+grant update (display_name,latitude_approx,longitude_approx,timezone) on public.profiles to authenticated;
+grant select on public.communities,public.community_members,public.credit_accounts,public.energy_assets,public.data_connections,public.import_jobs,public.market_intervals,public.energy_readings,public.forecasts,public.tariff_configs,public.feeder_snapshots,public.pricing_snapshots,public.offers,public.reservations,public.allocations,public.settlements,public.settlement_inputs,public.ledger_transactions,public.ledger_entries to authenticated;
+grant insert (id,community_id,asset_type,name,capacity_kw,tilt_degrees,azimuth_degrees,reserve_kwh,status,metadata) on public.energy_assets to authenticated;
+grant update (name,capacity_kw,tilt_degrees,azimuth_degrees,reserve_kwh,status) on public.energy_assets to authenticated;
+grant insert (id,community_id,asset_id,connection_type,provider,status) on public.data_connections to authenticated;
+grant update (status) on public.data_connections to authenticated;
+grant insert (id,community_id,asset_id,storage_object_path,file_sha256,status,warnings) on public.import_jobs to authenticated;
+grant update (status,warnings) on public.import_jobs to authenticated;
+grant insert (id,community_id,market_interval_id,solar_asset_id,forecast_id,batch_id,quantity_kwh,minimum_price,is_manual_quantity,auto_adjust) on public.offers to authenticated;
+grant update (quantity_kwh,minimum_price,is_manual_quantity,auto_adjust,status) on public.offers to authenticated;
+grant insert (id,community_id,market_interval_id,batch_id,quantity_kwh,maximum_price,auto_adjust) on public.reservations to authenticated;
+grant update (quantity_kwh,maximum_price,auto_adjust,status) on public.reservations to authenticated;
+grant select on public.own_profiles,public.own_assets,public.own_connections,public.own_imports,public.own_readings,public.own_forecasts,public.own_intervals,public.own_tariffs,public.own_feeders,public.own_offers,public.own_reservations,public.own_allocations,public.own_settlements,public.own_credit_accounts,public.own_ledger_entries to authenticated;
+
+revoke execute on function public.select_preferred_energy_reading(uuid,uuid,uuid,text),public.select_current_forecast(uuid,uuid,uuid,text,timestamptz),public.read_community_marketplace(uuid,uuid,integer,jsonb),public.read_community_map(uuid,timestamptz,timestamptz,integer,jsonb),public.read_operator_members(uuid,integer,jsonb),public.read_operator_data_health(uuid,timestamptz,integer,jsonb),public.read_operator_market(uuid,integer,jsonb),public.read_operator_settlement_totals(uuid,integer,jsonb),public.read_operator_audit(uuid,integer,jsonb),public.read_action_receipts(uuid,integer,jsonb),public.read_own_credit_balances(uuid),public.operator_update_membership(uuid,uuid,text,text,text),public.operator_append_tariff(uuid,numeric,numeric,numeric,numeric,timestamptz,timestamptz,text),public.operator_append_feeder_snapshot(uuid,uuid,numeric,numeric,text,text,text,timestamptz,text),public.operator_transition_interval(uuid,uuid,text,text),public.claim_outbox_events(text,integer,integer),public.complete_outbox_event(uuid,uuid,boolean,text),public.post_ledger_transaction(uuid,uuid,uuid,uuid,text),public.reset_demo_community(uuid,uuid,text,date) from public,anon,authenticated,service_role;
+grant execute on function public.select_preferred_energy_reading(uuid,uuid,uuid,text),public.select_current_forecast(uuid,uuid,uuid,text,timestamptz),public.read_community_marketplace(uuid,uuid,integer,jsonb),public.read_community_map(uuid,timestamptz,timestamptz,integer,jsonb),public.read_operator_members(uuid,integer,jsonb),public.read_operator_data_health(uuid,timestamptz,integer,jsonb),public.read_operator_market(uuid,integer,jsonb),public.read_operator_settlement_totals(uuid,integer,jsonb),public.read_operator_audit(uuid,integer,jsonb),public.read_action_receipts(uuid,integer,jsonb),public.read_own_credit_balances(uuid),public.operator_update_membership(uuid,uuid,text,text,text),public.operator_append_tariff(uuid,numeric,numeric,numeric,numeric,timestamptz,timestamptz,text),public.operator_append_feeder_snapshot(uuid,uuid,numeric,numeric,text,text,text,timestamptz,text),public.operator_transition_interval(uuid,uuid,text,text) to authenticated;
+grant execute on function public.claim_outbox_events(text,integer,integer),public.complete_outbox_event(uuid,uuid,boolean,text),public.post_ledger_transaction(uuid,uuid,uuid,uuid,text),public.reset_demo_community(uuid,uuid,text,date) to service_role;
+
+do $$
+declare relation_name text;
+begin
+  if exists(select 1 from pg_publication where pubname='supabase_realtime') then
+    foreach relation_name in array array['profiles','communities','community_members','credit_accounts','energy_assets','data_connections','import_jobs','market_intervals','energy_readings','forecasts','tariff_configs','feeder_snapshots','pricing_snapshots','offers','reservations','allocations','settlements','settlement_inputs','ledger_transactions','ledger_entries','audit_events','idempotency_records','outbox_events'] loop
+      if exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename=relation_name) then raise exception 'application table % must not be in supabase_realtime',relation_name; end if;
+    end loop;
+  end if;
+end; $$;
+
+commit;
