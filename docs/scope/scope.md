@@ -17,8 +17,8 @@ _These are recommendations to keep your build orderly, not requirements. You may
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data and access model | Foundation | in-progress |
 | 4 | Minimal UI foundation | Foundation | in-progress |
-| 5 | Seeded identity and community | Release 1 | planned |
-| 6 | Seller forecast and sharing | Release 1 | planned |
+| 5 | Seeded identity and community | Release 1 | in-progress |
+| 6 | Seller forecast and sharing | Release 1 | in-progress |
 | 7 | Buyer marketplace and reservation | Release 1 | planned |
 | 8 | Explainable pricing | Release 1 | planned |
 | 9 | Matching and allocation | Release 1 | planned |
@@ -71,14 +71,16 @@ Set a deliberately plain visual baseline for navigation, forms, tables, status l
 
 ## Release 1: Complete judge demo
 
-### 5. Seeded identity and community · planned
+### 5. Seeded identity and community · in-progress
 Give judges reliable seller, buyer, and operator entry points without spending the first release on public account management.
 **Done when:** each seeded role can sign in, receives the correct community access, reaches its minimal dashboard, and cannot read another household's private records.
-- [ ] Build it: `/develop seeded identity and community`
+**Code:** `src/application/viewer.ts`, `src/app/sign-in`, `src/app/(app)`, and `src/components/app-shell`
+- [x] Build it: `/develop seeded identity and community`
 
-### 6. Seller forecast and sharing · planned
+### 6. Seller forecast and sharing · in-progress · assumed decision (spec 0004)
 Use repeatable simulated intervals to show generation, home demand, reserve, and shareable surplus. Keep provider adapters ready for keys, but do not make the demo depend on an external service.
 **Done when:** a seller can review tomorrow's labeled 15 minute estimates, approve or edit a suggested quantity, and publish an offer with a visible minimum price and source explanation.
+**Spec:** [0004](../specs/0004-forecast-visibility-rule/index.md) · assumed, owes ratification
 - [ ] Build it: `/develop seller forecast and sharing`
 
 ### 7. Buyer marketplace and reservation · planned
