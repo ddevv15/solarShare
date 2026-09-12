@@ -4,7 +4,7 @@ import {
   Inbox,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -43,14 +43,16 @@ export function FeedbackState({
   description,
   action,
 }: FeedbackStateProps) {
+  const emptyTitleId = useId();
+
   if (state === "empty") {
     return (
-      <Empty data-state="empty">
+      <Empty role="region" aria-labelledby={emptyTitleId} data-state="empty">
         <EmptyHeader>
           <EmptyMedia>
             <Inbox aria-hidden="true" />
           </EmptyMedia>
-          <EmptyTitle>{title}</EmptyTitle>
+          <EmptyTitle id={emptyTitleId}>{title}</EmptyTitle>
           <EmptyDescription>{description}</EmptyDescription>
         </EmptyHeader>
         {action ? <EmptyContent>{action}</EmptyContent> : null}

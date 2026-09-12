@@ -1,7 +1,9 @@
 import { LockKeyhole, Sun, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { signOut } from "@/app/(app)/actions";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
+import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,8 +29,8 @@ type SignInPageProps = {
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const viewer = await getCurrentViewer();
-  if (viewer) redirect("/");
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status === "resolved") redirect("/");
 
   const query = await searchParams;
   const error = typeof query.error === "string" ? query.error : undefined;
@@ -80,55 +82,69 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
         <Card className="rounded-none border-0 shadow-none">
           <CardHeader className="px-6 pt-8 sm:px-10 sm:pt-10">
-            <CardTitle className="text-2xl">Enter the demo</CardTitle>
+            <CardTitle className="text-2xl">
+              {viewerState.status === "unresolved"
+                ? "Resolve this session"
+                : "Enter the demo"}
+            </CardTitle>
             <CardDescription>
-              Use any seeded email with `SOLARSHARE_DEMO_PASSWORD` from your
-              local environment.
+              {viewerState.status === "unresolved"
+                ? "You are signed in, but this account cannot enter the community."
+                : "Use any seeded email with `SOLARSHARE_DEMO_PASSWORD` from your local environment."}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 sm:px-10">
-            <form action={signIn} className="flex flex-col gap-6">
-              {error ? (
-                <Alert variant="destructive" role="alert">
-                  <LockKeyhole aria-hidden="true" />
-                  <AlertTitle>Sign in failed</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : null}
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="email">Seeded email</FieldLabel>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="username"
-                    placeholder="seller@solarshare.local"
-                    required
-                  />
-                  <FieldDescription>
-                    Try seller@solarshare.local, buyer1@solarshare.local, or
-                    operator@solarshare.local.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="password">Demo password</FieldLabel>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                  />
-                </Field>
-              </FieldGroup>
-              <Button type="submit" size="lg" className="w-full">
-                Sign in to SolarShare
-              </Button>
-            </form>
+            {viewerState.status === "unresolved" ? (
+              <ViewerAccessFeedback
+                reason={viewerState.reason}
+                signOutAction={signOut}
+              />
+            ) : (
+              <form action={signIn} className="flex flex-col gap-6">
+                {error ? (
+                  <Alert variant="destructive" role="alert">
+                    <LockKeyhole aria-hidden="true" />
+                    <AlertTitle>Sign in failed</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : null}
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="email">Seeded email</FieldLabel>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="username"
+                      placeholder="seller@solarshare.local"
+                      required
+                    />
+                    <FieldDescription>
+                      Try seller@solarshare.local, buyer1@solarshare.local, or
+                      operator@solarshare.local.
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="password">Demo password</FieldLabel>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                    />
+                  </Field>
+                </FieldGroup>
+                <Button type="submit" size="lg" className="w-full">
+                  Sign in to SolarShare
+                </Button>
+              </form>
+            )}
           </CardContent>
           <CardFooter className="px-6 pb-8 text-sm text-muted-foreground sm:px-10 sm:pb-10">
-            Public registration is intentionally outside this first release.
+            {viewerState.status === "unresolved"
+              ? "Sign out before trying another seeded account."
+              : "Public registration is intentionally outside this first release."}
           </CardFooter>
         </Card>
       </div>

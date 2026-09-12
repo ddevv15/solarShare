@@ -8,9 +8,10 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { getCurrentViewer } from "@/app/_lib/current-viewer";
+import { getCurrentViewerState } from "@/app/_lib/current-viewer";
 import { PageHeader } from "@/components/foundation/page-header";
 import { StatusLabel } from "@/components/foundation/status-label";
+import { ViewerAccessFeedback } from "@/components/viewer-access-feedback";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,6 +20,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+import { signOut } from "./actions";
 
 const dashboardCopy = {
   seller: {
@@ -51,8 +54,18 @@ const dashboardCopy = {
 } as const;
 
 export default async function Home() {
-  const viewer = await getCurrentViewer();
-  if (!viewer) redirect("/sign-in");
+  const viewerState = await getCurrentViewerState();
+  if (viewerState.status === "anonymous") redirect("/sign-in");
+  if (viewerState.status === "unresolved") {
+    return (
+      <ViewerAccessFeedback
+        reason={viewerState.reason}
+        signOutAction={signOut}
+      />
+    );
+  }
+
+  const { viewer } = viewerState;
 
   const copy = dashboardCopy[viewer.dashboardKind];
   const Icon = copy.icon;

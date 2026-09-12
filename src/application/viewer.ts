@@ -22,6 +22,11 @@ export type ViewerContext = {
   dashboardKind: DashboardKind;
 };
 
+export type ViewerState =
+  | { status: "anonymous" }
+  | { status: "resolved"; viewer: ViewerContext }
+  | { status: "unresolved"; email: string; reason: string };
+
 export class ViewerAccessError extends Error {
   constructor(message: string) {
     super(message);
@@ -35,6 +40,27 @@ type ViewerRepositories = {
   asset: AssetRepository;
 };
 
+export async function resolveViewerState(
+  identity: { id: string; email?: string } | null,
+  repositories: ViewerRepositories,
+): Promise<ViewerState> {
+  if (!identity) return { status: "anonymous" };
+
+  try {
+    const viewer = await resolveViewerContext(identity, repositories);
+
+    return { status: "resolved", viewer };
+  } catch (error) {
+    if (!(error instanceof ViewerAccessError)) throw error;
+
+    return {
+      status: "unresolved",
+      email: identity.email ?? "",
+      reason: error.message,
+    };
+  }
+}
+
 export async function resolveViewerContext(
   identity: { id: string; email?: string },
   repositories: ViewerRepositories,
@@ -44,9 +70,15 @@ export async function resolveViewerContext(
     (membership) => membership.status === "active",
   );
 
-  if (activeMemberships.length !== 1) {
+  if (activeMemberships.length === 0) {
     throw new ViewerAccessError(
-      "The demo requires exactly one active community membership.",
+      "This account does not have an active community membership.",
+    );
+  }
+
+  if (activeMemberships.length > 1) {
+    throw new ViewerAccessError(
+      "This account has more than one active community membership.",
     );
   }
 
