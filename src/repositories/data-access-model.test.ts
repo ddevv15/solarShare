@@ -50,15 +50,57 @@ describe("seeded auth identities", () => {
     "phone_change_token",
     "reauthentication_token",
   ];
+  const repairTokenArray = repair.match(
+    /foreach token_column in array array\[([\s\S]*?)\]\s*loop/,
+  )?.[1];
 
   // Auth scans these into non-nullable strings. A null makes every Auth query
   // touching the row fail: sign-in returned 500 "Database error querying
   // schema" and the admin user list returned 500 "Database error finding users".
-  it.each(tokenColumns)("seeds %s rather than leaving it null", (column) => {
-    expect(seed).toContain(column);
+  it("maps every seeded token column to an empty string", () => {
+    const authUserColumns = [
+      "instance_id",
+      "id",
+      "aud",
+      "role",
+      "email",
+      "encrypted_password",
+      "email_confirmed_at",
+      "raw_app_meta_data",
+      "raw_user_meta_data",
+      "is_sso_user",
+      "is_anonymous",
+      "created_at",
+      "updated_at",
+      ...tokenColumns,
+    ];
+    const authUserValues = [
+      "'00000000-0000-0000-0000-000000000000'",
+      "person.id",
+      "'authenticated'",
+      "'authenticated'",
+      "person.email",
+      "null",
+      "origin",
+      "jsonb_build_object('provider','email','providers',array['email'])",
+      "jsonb_build_object('display_name',person.display_name)",
+      "false",
+      "false",
+      "origin",
+      "origin",
+      ...tokenColumns.map(() => "''"),
+    ];
+
+    expect(seed).toContain(
+      `insert into auth.users(${authUserColumns.join(",")})\n    values(${authUserValues.join(",")})`,
+    );
   });
 
-  it("repairs rows that were already written with nulls", () => {
+  it.each(tokenColumns)("includes %s in the repair array", (column) => {
+    expect(repairTokenArray).toMatch(new RegExp(`^\\s*'${column}',?$`, "m"));
+  });
+
+  it("repairs every included token column with an empty string", () => {
     expect(repair).toContain(
       "update auth.users set %1$I = '''' where %1$I is null",
     );
